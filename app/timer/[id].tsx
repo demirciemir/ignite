@@ -298,8 +298,8 @@ export default function ActiveTimer() {
                       <Text style={[styles.timeText, { color: themeColor }]}>
                         {formatTime(timeLeft)}
                       </Text>
-                      <Text style={[styles.statusText, { color: themeColor }]}>
-                        {state === 'idle' ? 'READY' : (isWork ? 'WORK' : 'REST')}
+                      <Text style={[styles.statusText, { color: themeColor }]} numberOfLines={1} adjustsFontSizeToFit>
+                        {state === 'idle' ? 'READY' : (currentBlock.name ? currentBlock.name.toUpperCase() : (isWork ? 'WORK' : 'REST'))}
                       </Text>
                     </Animated.View>
                   )}

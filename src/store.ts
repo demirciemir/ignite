@@ -6,6 +6,7 @@ export type IntervalBlock = {
   id: string;
   type: 'work' | 'rest';
   durationSeconds: number;
+  name?: string;
 };
 
 export type LoopBlock = {
