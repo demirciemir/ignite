@@ -1,105 +1,78 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { useStore } from '../store';
-import { BentoCard } from './BentoCard';
-import { theme } from '../theme';
+import { useAppTheme } from '../theme';
 import { Flame, Calendar, Trophy } from 'lucide-react-native';
 
 export function StreakWidget() {
   const streakDays = useStore((s) => s.streakDays);
+  const t = useAppTheme();
 
   return (
-    <BentoCard style={styles.card} accessible={true} accessibilityRole="summary" accessibilityLabel={`Current streak: ${streakDays} days`}>
+    <View style={[styles.card, { backgroundColor: t.colors.card, borderColor: t.colors.border }]} accessible={true} accessibilityRole="summary" accessibilityLabel={`Current streak: ${streakDays} days`}>
       <View style={styles.header}>
-        <View style={styles.iconBox}>
-          <Flame size={28} color="#FF3B30" fill="#FF3B30" />
+        <View style={[styles.iconBox, { backgroundColor: t.colors.accent + '20' }]}>
+          <Flame size={28} color={t.colors.accent} fill={t.colors.accent} />
         </View>
         <View style={styles.textContainer}>
-          <Text style={styles.title}>Current Streak</Text>
-          <Text style={styles.subtitle}>Consistency is key</Text>
+          <Text style={[styles.title, { color: t.colors.text }]}>Current Streak</Text>
+          <Text style={[styles.subtitle, { color: t.colors.textMuted }]}>Consistency is key</Text>
         </View>
       </View>
 
-      <View style={styles.statsRow}>
+      <View style={[styles.statsRow, { backgroundColor: t.colors.background }]}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{streakDays}</Text>
-          <Text style={styles.statLabel}>Days</Text>
+          <Text style={[styles.statValue, { color: t.colors.text }]}>{streakDays}</Text>
+          <Text style={[styles.statLabel, { color: t.colors.textMuted }]}>Days</Text>
         </View>
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: t.colors.border }]} />
         <View style={styles.statItem}>
           <Trophy size={24} color="#FFD60A" />
-          <Text style={styles.statLabel}>Pro</Text>
+          <Text style={[styles.statLabel, { color: t.colors.textMuted }]}>Pro</Text>
         </View>
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: t.colors.border }]} />
         <View style={styles.statItem}>
-          <Calendar size={24} color={theme.colors.textMuted} />
-          <Text style={styles.statLabel}>Log</Text>
+          <Calendar size={24} color={t.colors.textMuted} />
+          <Text style={[styles.statLabel, { color: t.colors.textMuted }]}>Log</Text>
         </View>
       </View>
-    </BentoCard>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    padding: theme.spacing.lg,
-    backgroundColor: '#FFFFFF',
+    padding: 24,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 15,
+    elevation: 3,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.xl,
+    marginBottom: 24,
   },
   iconBox: {
     width: 56,
     height: 56,
     borderRadius: 20,
-    backgroundColor: '#FFF0F0', // Light red
     alignItems: 'center',
     justifyContent: 'center',
   },
-  textContainer: {
-    marginLeft: theme.spacing.md,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
+  textContainer: { marginLeft: 16 },
+  title: { fontSize: 20, fontWeight: '800' },
+  subtitle: { fontSize: 14, marginTop: 2 },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8F8F9',
     borderRadius: 16,
-    padding: theme.spacing.md,
+    padding: 16,
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  divider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#E5E5EA',
-  }
+  statItem: { flex: 1, alignItems: 'center', gap: 4 },
+  statValue: { fontSize: 24, fontWeight: '800' },
+  statLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  divider: { width: 1, height: 30 }
 });

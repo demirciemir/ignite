@@ -1,0 +1,88 @@
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useStore, ThemePreference } from '../src/store';
+import { useAppTheme } from '../src/theme';
+import { ChevronLeft, Monitor, Moon, Sun } from 'lucide-react-native';
+
+export default function Settings() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const t = useAppTheme();
+  
+  const themePref = useStore(s => s.themePreference);
+  const setThemePref = useStore(s => s.setThemePreference);
+
+  const handlePress = (pref: ThemePreference) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setThemePref(pref);
+  };
+
+  const Option = ({ pref, title, icon: Icon }: { pref: ThemePreference, title: string, icon: any }) => (
+    <Pressable
+      style={[
+        styles.optionRow, 
+        { borderBottomColor: t.colors.border },
+        themePref === pref && { backgroundColor: t.colors.buttonSecondary }
+      ]}
+      onPress={() => handlePress(pref)}
+    >
+      <View style={styles.optionIcon}>
+        <Icon size={20} color={themePref === pref ? t.colors.accent : t.colors.text} />
+      </View>
+      <Text style={[styles.optionText, { color: t.colors.text }]}>{title}</Text>
+    </Pressable>
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: t.colors.background, paddingTop: Math.max(insets.top, 20) }]}>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <ChevronLeft size={28} color={t.colors.text} />
+        </Pressable>
+        <Text style={[styles.title, { color: t.colors.text }]}>Settings</Text>
+        <View style={{ width: 28 }} />
+      </View>
+
+      <View style={[styles.section, { backgroundColor: t.colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: t.colors.textMuted }]}>APPEARANCE</Text>
+        <Option pref="system" title="System Default" icon={Monitor} />
+        <Option pref="light" title="Light" icon={Sun} />
+        <Option pref="dark" title="Dark" icon={Moon} />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  backBtn: { padding: 4 },
+  title: { fontSize: 20, fontWeight: '700' },
+  section: {
+    marginHorizontal: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    padding: 16,
+    paddingBottom: 8,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  optionIcon: { marginRight: 12 },
+  optionText: { fontSize: 16, fontWeight: '500' },
+});
