@@ -8,6 +8,7 @@ export const theme = {
     success: '#34C759',
     buttonText: '#FFFFFF',
     textInverse: '#FFFFFF',
+    buttonSecondary: '#E5E5EA',
   },
   spacing: {
     sm: 8,
