@@ -8,8 +8,9 @@ export default function RootLayout() {
       <BottomSheetModalProvider>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F2F2F7' } }}>
           <Stack.Screen name="index" />
-          <Stack.Screen name="builder" options={{ presentation: 'fullScreenModal' }} />
-          <Stack.Screen name="timer/[id]" options={{ presentation: 'fullScreenModal' }} />
+          <Stack.Screen name="builder" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="timer/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
         </Stack>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>

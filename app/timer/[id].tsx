@@ -50,42 +50,46 @@ export default function ActiveTimer() {
     if (state === 'running') {
       interval = setInterval(() => {
         setTimeLeft((prev) => {
-          if (prev <= 1) {
-            playEnd();
-            if (blockIdx < blocks.length - 1) {
-              // We hit 0 for this block, jump to next block
-              // Wait! If we jump to next block instantly, we skip the 0s animation.
-              // Let's defer it slightly.
-              setTimeout(() => {
-                setBlockIdx(b => b + 1);
-                const nextDur = blocks[blockIdx + 1].durationSeconds;
-                setTimeLeft(nextDur);
-                progress.value = 1;
-              }, 100);
-              return 0; // return 0 visually for a fraction
-            } else {
-              setTimeout(() => setState('finished'), 100);
-              return 0;
-            }
-          }
-          if (prev <= 4) playTick();
+          if (prev <= 0) return 0;
+          if (prev === 1) playEnd();
+          else if (prev <= 4) playTick();
           return prev - 1;
         });
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [state, blockIdx]);
+  }, [state]);
+
+  useEffect(() => {
+    if (state === 'running' && timeLeft === 0) {
+      const t = setTimeout(() => {
+        if (blockIdx < blocks.length - 1) {
+          setBlockIdx(b => b + 1);
+          setTimeLeft(blocks[blockIdx + 1].durationSeconds);
+          progress.value = 1;
+        } else {
+          setState('finished');
+        }
+      }, 1200);
+      return () => clearTimeout(t);
+    }
+  }, [timeLeft, state, blockIdx]);
 
   useEffect(() => {
     if (state === 'idle') {
       progress.value = withSpring(1);
+    } else if (state === 'finished') {
+      progress.value = withTiming(0, { duration: 500 });
     } else {
       const currentDur = currentBlock.durationSeconds;
       const target = timeLeft / currentDur;
-      // Animate linearly so the bar drains perfectly synced with the seconds
-      progress.value = withTiming(target, { duration: 1000 });
+      if (timeLeft === currentDur) {
+        progress.value = target;
+      } else {
+        progress.value = withTiming(target, { duration: 1000 });
+      }
     }
-  }, [timeLeft, state]);
+  }, [timeLeft, state, currentBlock.durationSeconds]);
 
   const animatedCircleProps = useAnimatedProps(() => {
     return {
@@ -94,11 +98,14 @@ export default function ActiveTimer() {
   });
 
   const animatedBgStyle = useAnimatedStyle(() => {
+    if (state === 'finished') {
+      return { backgroundColor: withTiming(t.colors.success, { duration: 800 }) };
+    }
     const isWork = currentBlock.type === 'work';
     const activeColor = isWork ? '#FF3B30' : '#007AFF'; // Red for work, Blue for rest
     const bg = state === 'idle' ? t.colors.background : activeColor;
     return {
-      backgroundColor: withTiming(bg, { duration: 500 }),
+      backgroundColor: withTiming(bg, { duration: 800 }),
     };
   });
 
@@ -138,81 +145,79 @@ export default function ActiveTimer() {
   const themeColor = state === 'idle' ? t.colors.text : '#FFFFFF';
   const trackColor = state === 'idle' ? t.colors.border : 'rgba(255,255,255,0.2)';
 
-  if (state === 'finished') {
-    return (
-      <View style={[styles.container, { backgroundColor: t.colors.success }]}>
-        <Animated.View entering={FadeIn.springify()} style={styles.finishedView}>
+  return (
+    <Animated.View style={[styles.container, animatedBgStyle]}>
+      {state === 'finished' ? (
+        <Animated.View entering={FadeIn.delay(300).springify()} style={[styles.finishedView, StyleSheet.absoluteFill]}>
           <Text style={styles.finishedTitle}>Workout Complete!</Text>
           <Text style={styles.finishedSub}>Great job crushing {workout.name}.</Text>
           <Pressable onPress={handleClose} style={styles.finishedBtn}>
             <Text style={[styles.finishedBtnText, { color: t.colors.success }]}>Back to Dashboard</Text>
           </Pressable>
         </Animated.View>
-      </View>
-    );
-  }
-
-  return (
-    <Animated.View style={[styles.container, animatedBgStyle]}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-        <Pressable onPress={handleClose} style={styles.iconBtn}>
-          <X size={28} color={themeColor} />
-        </Pressable>
-        <Text style={[styles.workoutTitle, { color: themeColor }]}>
-          {blockIdx + 1} / {blocks.length}
-        </Text>
-        <View style={{ width: 28 }} />
-      </View>
-
-      <View style={styles.timerWrapper}>
-        <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
-          <Circle
-            cx={CIRCLE_SIZE / 2}
-            cy={CIRCLE_SIZE / 2}
-            r={RADIUS}
-            stroke={trackColor}
-            strokeWidth={STROKE_WIDTH}
-            fill="transparent"
-          />
-          <AnimatedCircle
-            cx={CIRCLE_SIZE / 2}
-            cy={CIRCLE_SIZE / 2}
-            r={RADIUS}
-            stroke={themeColor}
-            strokeWidth={STROKE_WIDTH}
-            fill="transparent"
-            strokeDasharray={CIRCUMFERENCE}
-            strokeLinecap="round"
-            animatedProps={animatedCircleProps}
-            transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
-          />
-        </Svg>
-        <View style={styles.timeDisplay}>
-          <Text style={[styles.timeText, { color: themeColor }]}>
-            {formatTime(timeLeft)}
-          </Text>
-          <Text style={[styles.statusText, { color: themeColor }]}>
-            {state === 'idle' ? 'READY' : (isWork ? 'WORK' : 'REST')}
-          </Text>
-        </View>
-      </View>
-
-      <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 40) }]}>
-        {state === 'idle' ? (
-          <Pressable onPress={handleStart} style={[styles.mainBtn, { backgroundColor: t.colors.text }]}>
-            <Text style={[styles.mainBtnText, { color: t.colors.background }]}>Start Workout</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.activeControls}>
-            <Pressable onPress={handlePause} style={[styles.controlBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-              {state === 'running' ? <Pause size={32} color="#FFF" /> : <Play size={32} color="#FFF" />}
+      ) : (
+        <Animated.View exiting={FadeOut} style={[StyleSheet.absoluteFill, { alignItems: 'center' }]}>
+          <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
+            <Pressable onPress={handleClose} style={styles.iconBtn}>
+              <X size={28} color={themeColor} />
             </Pressable>
-            <Pressable onPress={handleSkip} style={[styles.controlBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-              <SkipForward size={32} color="#FFF" />
-            </Pressable>
+            <Text style={[styles.workoutTitle, { color: themeColor }]}>
+              {blockIdx + 1} / {blocks.length}
+            </Text>
+            <View style={{ width: 28 }} />
           </View>
-        )}
-      </View>
+
+          <View style={styles.timerWrapper}>
+            <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
+              <Circle
+                cx={CIRCLE_SIZE / 2}
+                cy={CIRCLE_SIZE / 2}
+                r={RADIUS}
+                stroke={trackColor}
+                strokeWidth={STROKE_WIDTH}
+                fill="transparent"
+              />
+              <AnimatedCircle
+                cx={CIRCLE_SIZE / 2}
+                cy={CIRCLE_SIZE / 2}
+                r={RADIUS}
+                stroke={themeColor}
+                strokeWidth={STROKE_WIDTH}
+                fill="transparent"
+                strokeDasharray={CIRCUMFERENCE}
+                strokeLinecap="round"
+                animatedProps={animatedCircleProps}
+                transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
+              />
+            </Svg>
+            <View style={styles.timeDisplay}>
+              <Text style={[styles.timeText, { color: themeColor }]}>
+                {formatTime(timeLeft)}
+              </Text>
+              <Text style={[styles.statusText, { color: themeColor }]}>
+                {state === 'idle' ? 'READY' : (isWork ? 'WORK' : 'REST')}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 40) }]}>
+            {state === 'idle' ? (
+              <Pressable onPress={handleStart} style={[styles.mainBtn, { backgroundColor: t.colors.text }]}>
+                <Text style={[styles.mainBtnText, { color: t.colors.background }]}>Start Workout</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.activeControls}>
+                <Pressable onPress={handlePause} style={[styles.controlBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                  {state === 'running' ? <Pause size={32} color="#FFF" /> : <Play size={32} color="#FFF" />}
+                </Pressable>
+                <Pressable onPress={handleSkip} style={[styles.controlBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                  <SkipForward size={32} color="#FFF" />
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </Animated.View>
+      )}
     </Animated.View>
   );
 }
