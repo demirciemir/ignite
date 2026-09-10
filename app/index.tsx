@@ -55,11 +55,12 @@ export default function Home() {
               <Text style={[styles.greeting, { color: t.colors.textMuted }]}>Ready to train?</Text>
               <Text style={[styles.headerTitle, { color: t.colors.text }]}>Dashboard</Text>
             </View>
-            <Link href="/settings" asChild>
-              <Pressable onPress={handlePress} style={[styles.profileBtn, { backgroundColor: t.colors.card }]}>
-                <Settings size={24} color={t.colors.text} />
-              </Pressable>
-            </Link>
+            <Pressable 
+              onPress={() => { handlePress(); router.push('/settings'); }} 
+              style={[styles.profileBtn, { backgroundColor: t.colors.card }]}
+            >
+              <Settings size={24} color={t.colors.text} />
+            </Pressable>
           </View>
           
           <StreakWidget />
@@ -81,29 +82,27 @@ export default function Home() {
             workouts.map((w, index) => (
               <Animated.View key={w.id} layout={Layout.springify()} entering={FadeInDown.delay(200 + (index * 50)).springify()}>
                 <Swipeable renderRightActions={() => renderRightActions(w.id)} overshootRight={false}>
-                  <Link href={`/timer/${w.id}`} asChild>
-                    <Pressable
-                      accessible={true}
-                      accessibilityRole="button"
-                      onPress={handlePress}
-                      style={({ pressed }) => [styles.workoutCardWrapper, pressed && styles.pressed]}
-                    >
-                      <View style={[styles.workoutCard, { backgroundColor: t.colors.card }]}>
-                        <View style={styles.workoutInfo}>
-                          <View style={[styles.playIconBox, { backgroundColor: t.colors.text }]}>
-                            <Play size={20} color={t.colors.background} fill={t.colors.background} />
-                          </View>
-                          <View>
-                            <Text style={[styles.workoutName, { color: t.colors.text }]}>{w.name}</Text>
-                            <Text style={[styles.workoutSub, { color: t.colors.textMuted }]}>{w.blocks.length} blocks</Text>
-                          </View>
+                  <Pressable
+                    accessible={true}
+                    accessibilityRole="button"
+                    onPress={() => { handlePress(); router.push(`/timer/${w.id}`); }}
+                    style={({ pressed }) => [styles.workoutCardWrapper, pressed && styles.pressed]}
+                  >
+                    <View style={[styles.workoutCard, { backgroundColor: t.colors.card }]}>
+                      <View style={styles.workoutInfo}>
+                        <View style={[styles.playIconBox, { backgroundColor: t.colors.text }]}>
+                          <Play size={20} color={t.colors.background} fill={t.colors.background} />
                         </View>
-                        <View style={[styles.actionPill, { backgroundColor: t.colors.background }]}>
-                          <Text style={[styles.actionText, { color: t.colors.text }]}>Start</Text>
+                        <View>
+                          <Text style={[styles.workoutName, { color: t.colors.text }]}>{w.name}</Text>
+                          <Text style={[styles.workoutSub, { color: t.colors.textMuted }]}>{w.blocks.length} blocks</Text>
                         </View>
                       </View>
-                    </Pressable>
-                  </Link>
+                      <View style={[styles.actionPill, { backgroundColor: t.colors.background }]}>
+                        <Text style={[styles.actionText, { color: t.colors.text }]}>Start</Text>
+                      </View>
+                    </View>
+                  </Pressable>
                 </Swipeable>
               </Animated.View>
             ))
@@ -117,11 +116,12 @@ export default function Home() {
           <HomeIcon size={24} color={t.colors.text} />
           <Text style={[styles.tabLabel, { color: t.colors.text }]}>Home</Text>
         </View>
-        <Link href="/builder" asChild>
-          <Pressable onPress={handlePress} style={[styles.fabBtn, { backgroundColor: t.colors.text, shadowColor: t.colors.text }]}>
-            <Plus size={32} color={t.colors.background} />
-          </Pressable>
-        </Link>
+        <Pressable 
+          onPress={() => { handlePress(); router.push('/builder'); }} 
+          style={[styles.fabBtn, { backgroundColor: t.colors.text, shadowColor: t.colors.text }]}
+        >
+          <Plus size={32} color={t.colors.background} />
+        </Pressable>
         <View style={styles.tabItem}>
           <Activity size={24} color={t.colors.textMuted} />
           <Text style={[styles.tabLabel, { color: t.colors.textMuted }]}>Stats</Text>
