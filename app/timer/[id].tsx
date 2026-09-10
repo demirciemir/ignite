@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, IntervalBlock } from '../../src/store';
 import { useAppTheme } from '../../src/theme';
 import Animated, { 
-  FadeIn, FadeOut, SlideInRight, SlideOutLeft, Layout, ZoomIn, ZoomOut,
+  FadeIn, FadeOut, FadeInRight, FadeOutLeft, ZoomIn, ZoomOut, runOnJS,
   useSharedValue, useAnimatedStyle, useAnimatedProps, withSpring, withTiming,
   interpolateColor, Extrapolation, interpolate
 } from 'react-native-reanimated';
@@ -41,6 +41,8 @@ export default function ActiveTimer() {
   const [timeLeft, setTimeLeft] = useState(currentBlock.durationSeconds);
   
   const progress = useSharedValue(1);
+  const fillProgress = useSharedValue(0);
+  const [isResuming, setIsResuming] = useState(false);
 
   // Sound players
   const workSound = useAudioPlayer(require('../../assets/sounds/work.wav'));
@@ -134,7 +136,7 @@ export default function ActiveTimer() {
       opacity: withTiming(state === 'paused' ? 0.3 : 1, { duration: 300 }),
       transform: [{ scale: withTiming(state === 'paused' ? 0.95 : 1, { duration: 300 }) }]
     };
-  });
+  }, [state]);
 
   const handleStart = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -144,7 +146,22 @@ export default function ActiveTimer() {
 
   const handlePause = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setState(state === 'running' ? 'paused' : 'running');
+    setState('paused');
+    setIsResuming(false);
+    fillProgress.value = 0;
+  };
+
+  const handleResume = () => {
+    if (isResuming) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsResuming(true);
+    fillProgress.value = 0;
+    fillProgress.value = withTiming(1, { duration: 1000 }, (finished) => {
+      if (finished) {
+        runOnJS(setState)('running');
+        runOnJS(setIsResuming)(false);
+      }
+    });
   };
 
   const handleSkip = () => {
@@ -201,40 +218,42 @@ export default function ActiveTimer() {
           <View style={{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' }}>
             <Animated.View 
               key={blockIdx}
-              entering={SlideInRight.springify().damping(20)}
-              exiting={SlideOutLeft.springify().damping(20)}
-              style={[styles.timerWrapper, dimStyle]}
+              entering={FadeInRight.duration(300)}
+              exiting={FadeOutLeft.duration(300)}
+              style={styles.timerWrapper}
             >
-              <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
-                <Circle
-                  cx={CIRCLE_SIZE / 2}
-                  cy={CIRCLE_SIZE / 2}
-                  r={RADIUS}
-                  stroke={trackColor}
-                  strokeWidth={STROKE_WIDTH}
-                  fill="transparent"
-                />
-                <AnimatedCircle
-                  cx={CIRCLE_SIZE / 2}
-                  cy={CIRCLE_SIZE / 2}
-                  r={RADIUS}
-                  stroke={themeColor}
-                  strokeWidth={STROKE_WIDTH}
-                  fill="transparent"
-                  strokeDasharray={CIRCUMFERENCE}
-                  strokeLinecap="round"
-                  animatedProps={animatedCircleProps}
-                  transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
-                />
-              </Svg>
-              <View style={styles.timeDisplay}>
-                <Text style={[styles.timeText, { color: themeColor }]}>
-                  {formatTime(timeLeft)}
-                </Text>
-                <Text style={[styles.statusText, { color: themeColor }]}>
-                  {state === 'idle' ? 'READY' : (isWork ? 'WORK' : 'REST')}
-                </Text>
-              </View>
+              <Animated.View style={[styles.timerWrapper, dimStyle]}>
+                <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
+                  <Circle
+                    cx={CIRCLE_SIZE / 2}
+                    cy={CIRCLE_SIZE / 2}
+                    r={RADIUS}
+                    stroke={trackColor}
+                    strokeWidth={STROKE_WIDTH}
+                    fill="transparent"
+                  />
+                  <AnimatedCircle
+                    cx={CIRCLE_SIZE / 2}
+                    cy={CIRCLE_SIZE / 2}
+                    r={RADIUS}
+                    stroke={themeColor}
+                    strokeWidth={STROKE_WIDTH}
+                    fill="transparent"
+                    strokeDasharray={CIRCUMFERENCE}
+                    strokeLinecap="round"
+                    animatedProps={animatedCircleProps}
+                    transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
+                  />
+                </Svg>
+                <View style={styles.timeDisplay}>
+                  <Text style={[styles.timeText, { color: themeColor }]}>
+                    {formatTime(timeLeft)}
+                  </Text>
+                  <Text style={[styles.statusText, { color: themeColor }]}>
+                    {state === 'idle' ? 'READY' : (isWork ? 'WORK' : 'REST')}
+                  </Text>
+                </View>
+              </Animated.View>
             </Animated.View>
 
             {state === 'paused' && (
@@ -244,8 +263,11 @@ export default function ActiveTimer() {
                 style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}
                 pointerEvents="box-none"
               >
-                <Pressable onPress={handlePause} style={[styles.hugePlayBtn, { backgroundColor: t.colors.text }]}>
-                  <Play size={48} color={t.colors.background} fill={t.colors.background} />
+                <Pressable onPress={handleResume} style={[styles.hugePlayBtn, { backgroundColor: t.colors.text, overflow: 'hidden' }]}>
+                  <Animated.View style={[{
+                    position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: t.colors.success
+                  }, useAnimatedStyle(() => ({ height: `${fillProgress.value * 100}%` }))]} />
+                  <Play size={48} color={t.colors.background} fill={t.colors.background} style={{ zIndex: 10 }} />
                 </Pressable>
               </Animated.View>
             )}
