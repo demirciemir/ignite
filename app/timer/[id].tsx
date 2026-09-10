@@ -53,17 +53,22 @@ export default function ActiveTimer() {
           if (prev <= 1) {
             playEnd();
             if (blockIdx < blocks.length - 1) {
-              // Next block
-              setBlockIdx(b => b + 1);
-              const nextDur = blocks[blockIdx + 1].durationSeconds;
-              progress.value = 1;
-              return nextDur;
+              // We hit 0 for this block, jump to next block
+              // Wait! If we jump to next block instantly, we skip the 0s animation.
+              // Let's defer it slightly.
+              setTimeout(() => {
+                setBlockIdx(b => b + 1);
+                const nextDur = blocks[blockIdx + 1].durationSeconds;
+                setTimeLeft(nextDur);
+                progress.value = 1;
+              }, 100);
+              return 0; // return 0 visually for a fraction
             } else {
-              setState('finished');
+              setTimeout(() => setState('finished'), 100);
               return 0;
             }
           }
-          if (prev <= 4) playTick(); // Tick on last 3 seconds
+          if (prev <= 4) playTick();
           return prev - 1;
         });
       }, 1000);
@@ -72,12 +77,12 @@ export default function ActiveTimer() {
   }, [state, blockIdx]);
 
   useEffect(() => {
-    // Animate the circle
     if (state === 'idle') {
       progress.value = withSpring(1);
     } else {
       const currentDur = currentBlock.durationSeconds;
       const target = timeLeft / currentDur;
+      // Animate linearly so the bar drains perfectly synced with the seconds
       progress.value = withTiming(target, { duration: 1000 });
     }
   }, [timeLeft, state]);
@@ -139,8 +144,8 @@ export default function ActiveTimer() {
         <Animated.View entering={FadeIn.springify()} style={styles.finishedView}>
           <Text style={styles.finishedTitle}>Workout Complete!</Text>
           <Text style={styles.finishedSub}>Great job crushing {workout.name}.</Text>
-          <Pressable onPress={handleClose} style={[styles.controlBtn, { backgroundColor: '#FFFFFF', marginTop: 40 }]}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: t.colors.success }}>Back to Dashboard</Text>
+          <Pressable onPress={handleClose} style={styles.finishedBtn}>
+            <Text style={[styles.finishedBtnText, { color: t.colors.success }]}>Back to Dashboard</Text>
           </Pressable>
         </Animated.View>
       </View>
@@ -287,5 +292,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: 'rgba(255,255,255,0.8)',
     fontWeight: '600',
+  },
+  finishedBtn: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 30,
+    marginTop: 40,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  finishedBtnText: {
+    fontSize: 18,
+    fontWeight: '800',
   }
 });

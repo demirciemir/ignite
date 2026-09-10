@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, Keyboard, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useStore, IntervalBlock } from '../src/store';
@@ -84,6 +84,7 @@ export default function Builder() {
     const trimmedName = name.trim();
     if (!trimmedName || blocks.length === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Missing Info', 'Please provide a workout name and add at least one interval block to save.');
       return;
     }
     handleSuccess();
@@ -188,8 +189,8 @@ export default function Builder() {
           style={({ pressed }) => [styles.addBtn, { backgroundColor: t.colors.text }, pressed && styles.pressed]}
           onPress={openSheet}
         >
-          <Plus size={24} color={t.colors.buttonText} />
-          <Text style={[styles.addBtnText, { color: t.colors.buttonText }]}>Add Interval</Text>
+          <Plus size={24} color={t.colors.background} />
+          <Text style={[styles.addBtnText, { color: t.colors.background }]}>Add Interval</Text>
         </Pressable>
       </View>
 
@@ -241,7 +242,7 @@ export default function Builder() {
             style={({ pressed }) => [styles.sheetAddBtn, { backgroundColor: t.colors.text }, pressed && styles.pressed]}
             onPress={addBlockFromSheet}
           >
-            <Text style={[styles.addBtnText, { color: t.colors.buttonText }]}>Add to Workout</Text>
+            <Text style={[styles.addBtnText, { color: t.colors.background }]}>Add to Workout</Text>
           </Pressable>
         </BottomSheetView>
       </BottomSheet>

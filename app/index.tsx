@@ -6,7 +6,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { StreakWidget } from '../src/components/StreakWidget';
 import { useStore } from '../src/store';
 import { useAppTheme } from '../src/theme';
-import { Play, Settings, Home as HomeIcon, Activity, Plus, Trash2, Edit2 } from 'lucide-react-native';
+import { Play, Settings, Home as HomeIcon, Activity, Plus, Trash2, Edit2, Timer } from 'lucide-react-native';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -51,9 +51,11 @@ export default function Home() {
       >
         <Animated.View entering={FadeInDown.delay(100).springify()}>
           <View style={styles.header}>
-            <View>
-              <Text style={[styles.greeting, { color: t.colors.textMuted }]}>Ready to train?</Text>
-              <Text style={[styles.headerTitle, { color: t.colors.text }]}>Dashboard</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={[styles.appIconBox, { backgroundColor: t.colors.text }]}>
+                <Timer size={24} color={t.colors.background} />
+              </View>
+              <Text style={[styles.headerTitle, { color: t.colors.text }]}>Timer App</Text>
             </View>
             <Pressable 
               onPress={() => { handlePress(); router.push('/settings'); }} 
@@ -141,8 +143,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  appIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   greeting: { fontSize: 16, fontWeight: '600' },
-  headerTitle: { fontSize: 32, fontWeight: '800' },
+  headerTitle: { fontSize: 28, fontWeight: '800' },
   profileBtn: {
     width: 48,
     height: 48,
