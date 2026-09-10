@@ -6,6 +6,8 @@ export const theme = {
     textMuted: '#8E8E93',
     accent: '#FF3B30', // Flame/streak accent
     success: '#34C759',
+    buttonText: '#FFFFFF',
+    textInverse: '#FFFFFF',
   },
   spacing: {
     sm: 8,
