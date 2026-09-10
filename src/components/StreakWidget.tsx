@@ -7,7 +7,12 @@ export function StreakWidget() {
   const streak = useStore((s) => s.streakDays);
 
   return (
-    <BentoCard style={styles.container}>
+    <BentoCard 
+      style={styles.container}
+      accessible={true}
+      accessibilityLabel={`Streak: ${streak} days following your plan`}
+      accessibilityRole="summary"
+    >
       <Text style={styles.title}>Streak</Text>
       <View style={styles.flameContainer}>
         <Text style={styles.flame}>🔥</Text>

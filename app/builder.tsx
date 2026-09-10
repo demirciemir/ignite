@@ -25,9 +25,9 @@ export default function Builder() {
   };
 
   const save = () => {
-    handlePress();
     const trimmedName = name.trim();
     if (!trimmedName) return;
+    handlePress();
     addWorkout({ id: Math.random().toString(), name: trimmedName, blocks });
     router.back();
   };

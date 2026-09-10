@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Redirect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../src/store';
 import { theme } from '../../src/theme';
 
@@ -9,6 +10,7 @@ export default function ActiveTimer() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const workout = useStore((s) => s.workouts.find((w) => w.id === id));
+  const insets = useSafeAreaInsets();
 
   // Minimal placeholder state for timer
   const [timeLeft, setTimeLeft] = useState(30);
@@ -25,17 +27,19 @@ export default function ActiveTimer() {
     router.back();
   };
 
-  if (!workout) return null;
+  if (!workout) {
+    return <Redirect href="/" />;
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.workoutName}>{workout.name}</Text>
+      <Text style={[styles.workoutName, { top: Math.max(insets.top, 60) }]}>{workout.name}</Text>
       <View style={styles.timeContainer}>
         <Text style={styles.timeText}>{timeLeft}</Text>
         <Text style={styles.statusText}>WORK</Text>
       </View>
       <Pressable
-        style={({ pressed }) => [styles.stopBtn, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.stopBtn, { bottom: Math.max(insets.bottom, 60) }, pressed && styles.pressed]}
         onPress={handleEndWorkout}
       >
         <Text style={styles.stopBtnText}>End Workout</Text>
@@ -56,7 +60,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.textMuted,
     position: 'absolute',
-    top: 60,
   },
   timeContainer: {
     alignItems: 'center',
@@ -84,7 +87,6 @@ const styles = StyleSheet.create({
   },
   stopBtn: {
     position: 'absolute',
-    bottom: 60,
     paddingHorizontal: 40,
     paddingVertical: 20,
     backgroundColor: theme.colors.text,

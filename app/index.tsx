@@ -24,6 +24,9 @@ export default function Home() {
         workouts.map((w) => (
           <Link key={w.id} href={`/timer/${w.id}`} asChild>
             <Pressable
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={`Workout: ${w.name}`}
               onPress={handlePress}
               style={({ pressed }) => [
                 styles.workoutCardWrapper,
@@ -40,6 +43,9 @@ export default function Home() {
 
       <Link href="/builder" asChild>
         <Pressable
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Create a new workout"
           onPress={handlePress}
           style={({ pressed }) => [
             styles.addButton,

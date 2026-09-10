@@ -20,4 +20,4 @@ export const theme = {
     card: 24,
     button: 16,
   }
-};
+} as const;
