@@ -316,7 +316,8 @@ export default function ActiveTimer() {
               >
                 <Pressable onPress={handleResume} style={[styles.hugePlayBtn, { backgroundColor: t.colors.text, overflow: 'hidden' }]}>
                   <Animated.View style={[{
-                    position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: t.colors.success
+                    position: 'absolute', top: 0, left: 0, right: 0, 
+                    backgroundColor: t.isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'
                   }, fillAnimatedStyle]} />
                   <Play size={48} color={t.colors.background} fill={t.colors.background} style={{ zIndex: 10 }} />
                 </Pressable>

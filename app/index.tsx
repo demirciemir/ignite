@@ -113,7 +113,7 @@ export default function Home() {
       </ScrollView>
 
       {/* Fake Tab Bar */}
-      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: t.colors.background, borderTopColor: t.colors.border }]}>
+      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: t.colors.background }]}>
         <View style={styles.tabItem}>
           <HomeIcon size={24} color={t.colors.text} />
           <Text style={[styles.tabLabel, { color: t.colors.text }]}>Home</Text>
@@ -211,7 +211,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    borderTopWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
