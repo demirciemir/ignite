@@ -10,7 +10,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen 
             name="builder" 
-            options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom', gestureEnabled: true, gestureDirection: 'vertical' }} 
+            options={{ presentation: 'modal', gestureEnabled: true, gestureDirection: 'vertical' }} 
           />
           <Stack.Screen 
             name="timer/[id]" 
@@ -18,7 +18,7 @@ export default function RootLayout() {
           />
           <Stack.Screen 
             name="settings" 
-            options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom', gestureEnabled: true, gestureDirection: 'vertical' }} 
+            options={{ presentation: 'modal', gestureEnabled: true, gestureDirection: 'vertical' }} 
           />
         </Stack>
       </BottomSheetModalProvider>
