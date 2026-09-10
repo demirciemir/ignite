@@ -36,7 +36,10 @@ export default function Settings() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: t.colors.background, paddingTop: Math.max(insets.top, 20) }]}>
+    <View style={[styles.container, { backgroundColor: t.colors.background, paddingTop: Math.max(insets.top, 10) }]}>
+      <View style={{ alignItems: 'center', marginBottom: 16 }}>
+        <View style={[styles.dragIndicator, { backgroundColor: t.colors.border }]} />
+      </View>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={28} color={t.colors.text} />
@@ -57,6 +60,7 @@ export default function Settings() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  dragIndicator: { width: 40, height: 5, borderRadius: 3 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

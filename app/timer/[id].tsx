@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import { useLocalSearchParams, useRouter, Redirect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, IntervalBlock } from '../../src/store';
 import { useAppTheme } from '../../src/theme';
@@ -41,6 +42,27 @@ export default function ActiveTimer() {
   
   const progress = useSharedValue(1);
 
+  // Sound players
+  const playSound = async (type: 'work' | 'rest' | 'complete') => {
+    try {
+      let asset;
+      if (type === 'work') asset = require('../../assets/sounds/work.wav');
+      else if (type === 'rest') asset = require('../../assets/sounds/rest.wav');
+      else asset = require('../../assets/sounds/complete.wav');
+      
+      const { sound } = await Audio.Sound.createAsync(asset);
+      await sound.playAsync();
+      // Unload when finished
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    } catch (e) {
+      console.warn("Could not play sound", e);
+    }
+  };
+
   // Sound/Haptics helpers
   const playTick = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
   const playEnd = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -64,11 +86,15 @@ export default function ActiveTimer() {
     if (state === 'running' && timeLeft === 0) {
       const t = setTimeout(() => {
         if (blockIdx < blocks.length - 1) {
-          setBlockIdx(b => b + 1);
-          setTimeLeft(blocks[blockIdx + 1].durationSeconds);
+          const nextIdx = blockIdx + 1;
+          const nextType = blocks[nextIdx].type;
+          setBlockIdx(nextIdx);
+          setTimeLeft(blocks[nextIdx].durationSeconds);
           progress.value = 1;
+          playSound(nextType);
         } else {
           setState('finished');
+          playSound('complete');
         }
       }, 1200);
       return () => clearTimeout(t);
@@ -112,6 +138,7 @@ export default function ActiveTimer() {
   const handleStart = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setState('running');
+    playSound(currentBlock.type);
   };
 
   const handlePause = () => {
@@ -122,11 +149,14 @@ export default function ActiveTimer() {
   const handleSkip = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (blockIdx < blocks.length - 1) {
-      setBlockIdx(b => b + 1);
-      setTimeLeft(blocks[blockIdx + 1].durationSeconds);
+      const nextIdx = blockIdx + 1;
+      setBlockIdx(nextIdx);
+      setTimeLeft(blocks[nextIdx].durationSeconds);
       progress.value = 1;
+      playSound(blocks[nextIdx].type);
     } else {
       setState('finished');
+      playSound('complete');
     }
   };
 

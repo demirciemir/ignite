@@ -149,7 +149,10 @@ export default function Builder() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: Math.max(insets.top, 20), backgroundColor: t.colors.background }]}>
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 10), backgroundColor: t.colors.background }]}>
+      <View style={{ alignItems: 'center', marginBottom: 16 }}>
+        <View style={[styles.dragIndicator, { backgroundColor: t.colors.border }]} />
+      </View>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()}>
           <Text style={[styles.cancelText, { color: t.colors.text }]}>Cancel</Text>
@@ -252,6 +255,7 @@ export default function Builder() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  dragIndicator: { width: 40, height: 5, borderRadius: 3 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
