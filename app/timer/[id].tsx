@@ -138,6 +138,12 @@ export default function ActiveTimer() {
     };
   }, [state]);
 
+  const fillAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: `${fillProgress.value * 100}%`
+    };
+  });
+
   const handleStart = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setState('running');
@@ -266,7 +272,7 @@ export default function ActiveTimer() {
                 <Pressable onPress={handleResume} style={[styles.hugePlayBtn, { backgroundColor: t.colors.text, overflow: 'hidden' }]}>
                   <Animated.View style={[{
                     position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: t.colors.success
-                  }, useAnimatedStyle(() => ({ height: `${fillProgress.value * 100}%` }))]} />
+                  }, fillAnimatedStyle]} />
                   <Play size={48} color={t.colors.background} fill={t.colors.background} style={{ zIndex: 10 }} />
                 </Pressable>
               </Animated.View>
