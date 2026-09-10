@@ -34,8 +34,9 @@ export default function ActiveTimer() {
   
   const blocks = workout.blocks as IntervalBlock[];
 
-  const [state, setState] = useState<'idle' | 'running' | 'paused' | 'finished'>('idle');
+  const [state, setState] = useState<'idle' | 'countdown' | 'running' | 'paused' | 'finished'>('idle');
   const [blockIdx, setBlockIdx] = useState(0);
+  const [countdown, setCountdown] = useState(3);
   
   const currentBlock = blocks[blockIdx] || blocks[0];
   const [timeLeft, setTimeLeft] = useState(currentBlock.durationSeconds);
@@ -48,20 +49,29 @@ export default function ActiveTimer() {
   const workSound = useAudioPlayer(require('../../assets/sounds/work.wav'));
   const restSound = useAudioPlayer(require('../../assets/sounds/rest.wav'));
   const completeSound = useAudioPlayer(require('../../assets/sounds/complete.wav'));
+  const tickSound = useAudioPlayer(require('../../assets/sounds/tick.wav'));
+  const goSound = useAudioPlayer(require('../../assets/sounds/go.wav'));
 
-  const playSound = async (type: 'work' | 'rest' | 'complete') => {
+  const playSound = async (type: 'work' | 'rest' | 'complete' | 'tick' | 'go') => {
     try {
       if (type === 'work') { await workSound.seekTo(0); workSound.play(); }
       else if (type === 'rest') { await restSound.seekTo(0); restSound.play(); }
+      else if (type === 'tick') { await tickSound.seekTo(0); tickSound.play(); }
+      else if (type === 'go') { await goSound.seekTo(0); goSound.play(); }
       else { await completeSound.seekTo(0); completeSound.play(); }
     } catch (e) {
       console.warn("Could not play sound", e);
     }
   };
 
-  // Sound/Haptics helpers
-  const playTick = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-  const playEnd = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const playTick = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+    playSound('tick');
+  };
+  const playEnd = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    playSound('go');
+  };
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -98,8 +108,29 @@ export default function ActiveTimer() {
   }, [timeLeft, state, blockIdx]);
 
   useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (state === 'countdown') {
+      interval = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            playEnd();
+            setState('running');
+            playSound(currentBlock.type);
+            return 0;
+          }
+          playTick();
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [state, currentBlock.type]);
+
+  useEffect(() => {
     if (state === 'idle') {
       progress.value = withSpring(1);
+    } else if (state === 'countdown') {
+      progress.value = withTiming(1); // Keep it full during countdown
     } else if (state === 'finished') {
       progress.value = withTiming(0, { duration: 500 });
     } else {
@@ -125,7 +156,7 @@ export default function ActiveTimer() {
     }
     const isWork = currentBlock.type === 'work';
     const activeColor = isWork ? '#FF3B30' : '#007AFF'; // Red for work, Blue for rest
-    const bg = state === 'idle' ? t.colors.background : activeColor;
+    const bg = state === 'idle' || state === 'countdown' ? t.colors.background : activeColor;
     return {
       backgroundColor: withTiming(bg, { duration: 800 }),
     };
@@ -146,8 +177,9 @@ export default function ActiveTimer() {
 
   const handleStart = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setState('running');
-    playSound(currentBlock.type);
+    setCountdown(3);
+    setState('countdown');
+    playTick();
   };
 
   const handlePause = () => {
@@ -161,8 +193,8 @@ export default function ActiveTimer() {
     if (isResuming) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsResuming(true);
-    fillProgress.value = 0;
-    fillProgress.value = withTiming(1, { duration: 1000 }, (finished) => {
+    fillProgress.value = 1;
+    fillProgress.value = withTiming(0, { duration: 1000 }, (finished) => {
       if (finished) {
         runOnJS(setState)('running');
         runOnJS(setIsResuming)(false);
@@ -196,8 +228,8 @@ export default function ActiveTimer() {
   };
 
   const isWork = currentBlock.type === 'work';
-  const themeColor = state === 'idle' ? t.colors.text : '#FFFFFF';
-  const trackColor = state === 'idle' ? t.colors.border : 'rgba(255,255,255,0.2)';
+  const themeColor = state === 'idle' || state === 'countdown' ? t.colors.text : '#FFFFFF';
+  const trackColor = state === 'idle' || state === 'countdown' ? t.colors.border : 'rgba(255,255,255,0.2)';
 
   return (
     <Animated.View style={[styles.container, animatedBgStyle]}>
@@ -252,12 +284,25 @@ export default function ActiveTimer() {
                   />
                 </Svg>
                 <View style={styles.timeDisplay}>
-                  <Text style={[styles.timeText, { color: themeColor }]}>
-                    {formatTime(timeLeft)}
-                  </Text>
-                  <Text style={[styles.statusText, { color: themeColor }]}>
-                    {state === 'idle' ? 'READY' : (isWork ? 'WORK' : 'REST')}
-                  </Text>
+                  {state === 'countdown' ? (
+                    <Animated.Text 
+                      key={`cd-${countdown}`} 
+                      entering={ZoomIn.springify().damping(14).withInitialValues({ transform: [{ scale: 0.3 }] })} 
+                      exiting={ZoomOut.duration(150)}
+                      style={[styles.timeText, { color: themeColor, fontSize: 120 }]}
+                    >
+                      {countdown}
+                    </Animated.Text>
+                  ) : (
+                    <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(300)} style={{ alignItems: 'center' }}>
+                      <Text style={[styles.timeText, { color: themeColor }]}>
+                        {formatTime(timeLeft)}
+                      </Text>
+                      <Text style={[styles.statusText, { color: themeColor }]}>
+                        {state === 'idle' ? 'READY' : (isWork ? 'WORK' : 'REST')}
+                      </Text>
+                    </Animated.View>
+                  )}
                 </View>
               </Animated.View>
             </Animated.View>
@@ -271,7 +316,7 @@ export default function ActiveTimer() {
               >
                 <Pressable onPress={handleResume} style={[styles.hugePlayBtn, { backgroundColor: t.colors.text, overflow: 'hidden' }]}>
                   <Animated.View style={[{
-                    position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: t.colors.success
+                    position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.2)'
                   }, fillAnimatedStyle]} />
                   <Play size={48} color={t.colors.background} fill={t.colors.background} style={{ zIndex: 10 }} />
                 </Pressable>
@@ -280,8 +325,8 @@ export default function ActiveTimer() {
           </View>
 
           <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 40) }]}>
-            {state === 'idle' ? (
-              <Pressable onPress={handleStart} style={[styles.mainBtn, { backgroundColor: t.colors.text }]}>
+            {state === 'idle' || state === 'countdown' ? (
+              <Pressable onPress={state === 'idle' ? handleStart : undefined} style={[styles.mainBtn, { backgroundColor: t.colors.text, opacity: state === 'countdown' ? 0.5 : 1 }]}>
                 <Text style={[styles.mainBtnText, { color: t.colors.background }]}>Start Workout</Text>
               </Pressable>
             ) : state === 'paused' ? null : (
