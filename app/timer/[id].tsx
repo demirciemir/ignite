@@ -2,12 +2,12 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import { useLocalSearchParams, useRouter, Redirect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, IntervalBlock } from '../../src/store';
 import { useAppTheme } from '../../src/theme';
 import Animated, { 
-  FadeIn, FadeOut, 
+  FadeIn, FadeOut, SlideInRight, SlideOutLeft, Layout, ZoomIn, ZoomOut,
   useSharedValue, useAnimatedStyle, useAnimatedProps, withSpring, withTiming,
   interpolateColor, Extrapolation, interpolate
 } from 'react-native-reanimated';
@@ -43,21 +43,15 @@ export default function ActiveTimer() {
   const progress = useSharedValue(1);
 
   // Sound players
+  const workSound = useAudioPlayer(require('../../assets/sounds/work.wav'));
+  const restSound = useAudioPlayer(require('../../assets/sounds/rest.wav'));
+  const completeSound = useAudioPlayer(require('../../assets/sounds/complete.wav'));
+
   const playSound = async (type: 'work' | 'rest' | 'complete') => {
     try {
-      let asset;
-      if (type === 'work') asset = require('../../assets/sounds/work.wav');
-      else if (type === 'rest') asset = require('../../assets/sounds/rest.wav');
-      else asset = require('../../assets/sounds/complete.wav');
-      
-      const { sound } = await Audio.Sound.createAsync(asset);
-      await sound.playAsync();
-      // Unload when finished
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync();
-        }
-      });
+      if (type === 'work') { await workSound.seekTo(0); workSound.play(); }
+      else if (type === 'rest') { await restSound.seekTo(0); restSound.play(); }
+      else { await completeSound.seekTo(0); completeSound.play(); }
     } catch (e) {
       console.warn("Could not play sound", e);
     }
@@ -135,6 +129,13 @@ export default function ActiveTimer() {
     };
   });
 
+  const dimStyle = useAnimatedStyle(() => {
+    return {
+      opacity: withTiming(state === 'paused' ? 0.3 : 1, { duration: 300 }),
+      transform: [{ scale: withTiming(state === 'paused' ? 0.95 : 1, { duration: 300 }) }]
+    };
+  });
+
   const handleStart = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setState('running');
@@ -197,37 +198,57 @@ export default function ActiveTimer() {
             <View style={{ width: 28 }} />
           </View>
 
-          <View style={styles.timerWrapper}>
-            <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
-              <Circle
-                cx={CIRCLE_SIZE / 2}
-                cy={CIRCLE_SIZE / 2}
-                r={RADIUS}
-                stroke={trackColor}
-                strokeWidth={STROKE_WIDTH}
-                fill="transparent"
-              />
-              <AnimatedCircle
-                cx={CIRCLE_SIZE / 2}
-                cy={CIRCLE_SIZE / 2}
-                r={RADIUS}
-                stroke={themeColor}
-                strokeWidth={STROKE_WIDTH}
-                fill="transparent"
-                strokeDasharray={CIRCUMFERENCE}
-                strokeLinecap="round"
-                animatedProps={animatedCircleProps}
-                transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
-              />
-            </Svg>
-            <View style={styles.timeDisplay}>
-              <Text style={[styles.timeText, { color: themeColor }]}>
-                {formatTime(timeLeft)}
-              </Text>
-              <Text style={[styles.statusText, { color: themeColor }]}>
-                {state === 'idle' ? 'READY' : (isWork ? 'WORK' : 'REST')}
-              </Text>
-            </View>
+          <View style={{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' }}>
+            <Animated.View 
+              key={blockIdx}
+              entering={SlideInRight.springify().damping(20)}
+              exiting={SlideOutLeft.springify().damping(20)}
+              style={[styles.timerWrapper, dimStyle]}
+            >
+              <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
+                <Circle
+                  cx={CIRCLE_SIZE / 2}
+                  cy={CIRCLE_SIZE / 2}
+                  r={RADIUS}
+                  stroke={trackColor}
+                  strokeWidth={STROKE_WIDTH}
+                  fill="transparent"
+                />
+                <AnimatedCircle
+                  cx={CIRCLE_SIZE / 2}
+                  cy={CIRCLE_SIZE / 2}
+                  r={RADIUS}
+                  stroke={themeColor}
+                  strokeWidth={STROKE_WIDTH}
+                  fill="transparent"
+                  strokeDasharray={CIRCUMFERENCE}
+                  strokeLinecap="round"
+                  animatedProps={animatedCircleProps}
+                  transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
+                />
+              </Svg>
+              <View style={styles.timeDisplay}>
+                <Text style={[styles.timeText, { color: themeColor }]}>
+                  {formatTime(timeLeft)}
+                </Text>
+                <Text style={[styles.statusText, { color: themeColor }]}>
+                  {state === 'idle' ? 'READY' : (isWork ? 'WORK' : 'REST')}
+                </Text>
+              </View>
+            </Animated.View>
+
+            {state === 'paused' && (
+              <Animated.View 
+                entering={ZoomIn.duration(200)} 
+                exiting={ZoomOut.duration(200)}
+                style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}
+                pointerEvents="box-none"
+              >
+                <Pressable onPress={handlePause} style={[styles.hugePlayBtn, { backgroundColor: t.colors.text }]}>
+                  <Play size={48} color={t.colors.background} fill={t.colors.background} />
+                </Pressable>
+              </Animated.View>
+            )}
           </View>
 
           <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 40) }]}>
@@ -235,15 +256,15 @@ export default function ActiveTimer() {
               <Pressable onPress={handleStart} style={[styles.mainBtn, { backgroundColor: t.colors.text }]}>
                 <Text style={[styles.mainBtnText, { color: t.colors.background }]}>Start Workout</Text>
               </Pressable>
-            ) : (
-              <View style={styles.activeControls}>
+            ) : state === 'paused' ? null : (
+              <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.activeControls}>
                 <Pressable onPress={handlePause} style={[styles.controlBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                  {state === 'running' ? <Pause size={32} color="#FFF" /> : <Play size={32} color="#FFF" />}
+                  <Pause size={32} color="#FFF" fill="#FFF" />
                 </Pressable>
                 <Pressable onPress={handleSkip} style={[styles.controlBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
                   <SkipForward size={32} color="#FFF" />
                 </Pressable>
-              </View>
+              </Animated.View>
             )}
           </View>
         </Animated.View>
@@ -264,7 +285,6 @@ const styles = StyleSheet.create({
   iconBtn: { padding: 8 },
   workoutTitle: { fontSize: 18, fontWeight: '700', letterSpacing: 1 },
   timerWrapper: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -289,6 +309,8 @@ const styles = StyleSheet.create({
   controls: {
     width: '100%',
     paddingHorizontal: 32,
+    minHeight: 120, // Prevents layout jump when hiding controls
+    justifyContent: 'flex-end',
   },
   mainBtn: {
     width: '100%',
@@ -311,6 +333,18 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  hugePlayBtn: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 8, // Optical centering for play icon
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
   },
   finishedView: {
     flex: 1,
