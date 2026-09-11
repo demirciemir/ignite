@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { useStore } from '../src/store';
-import { useRouter } from 'expo-router';
+import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, Settings, Play, Trash2, Edit3, Flame } from 'lucide-react-native';
+import { Plus, Settings, Play, Trash2, Edit2, Timer, Flame } from 'lucide-react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '../src/theme';
-import Animated, { FadeInUp, FadeOutDown, Layout, useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { FadeInDown, Layout, useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,38 +28,51 @@ export default function Home() {
     computedStreak = 0;
   }
 
-  const [displayStreak, setDisplayStreak] = useState(computedStreak - (justEarnedStreak ? 1 : 0));
+  const [displayStreak, setDisplayStreak] = useState(computedStreak);
+  const [showAnimation, setShowAnimation] = useState(false);
   const router = useRouter();
 
-  // Animation values
   const flameX = useSharedValue(width / 2 - 50);
   const flameY = useSharedValue(height / 2 - 50);
   const flameScale = useSharedValue(0);
   const flameOpacity = useSharedValue(0);
 
-  useEffect(() => {
-    if (justEarnedStreak) {
-      // Start pop-in animation
-      flameScale.value = withSpring(3, { damping: 12 });
-      flameOpacity.value = withTiming(1, { duration: 300 });
+  useFocusEffect(
+    useCallback(() => {
+      // Re-evaluate displayStreak when screen comes into focus
+      let currentComputed = streakDays;
+      if (!lastWorkoutDate || (lastWorkoutDate !== today && lastWorkoutDate !== yesterdayStr)) {
+        currentComputed = 0;
+      }
 
-      // Fly to top-right corner
-      setTimeout(() => {
-        flameX.value = withTiming(width - 60, { duration: 600, easing: Easing.bezier(0.25, 0.1, 0.25, 1) });
-        flameY.value = withTiming(insets.top + 20, { duration: 600, easing: Easing.bezier(0.25, 0.1, 0.25, 1) });
-        flameScale.value = withTiming(0.5, { duration: 600 });
+      if (justEarnedStreak) {
+        setDisplayStreak(currentComputed - 1); // hold the old value during animation
+        setShowAnimation(true);
         
+        flameX.value = width / 2 - 50;
+        flameY.value = height / 2 - 50;
+        flameScale.value = withSpring(3, { damping: 12 });
+        flameOpacity.value = withTiming(1, { duration: 300 });
+
         setTimeout(() => {
-          flameOpacity.value = withTiming(0, { duration: 200 });
-          setDisplayStreak(computedStreak);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          clearStreakAnimation();
-        }, 600);
-      }, 1000);
-    } else {
-      setDisplayStreak(computedStreak);
-    }
-  }, [justEarnedStreak, computedStreak]);
+          flameX.value = withTiming(width - 60, { duration: 600, easing: Easing.bezier(0.25, 0.1, 0.25, 1) });
+          flameY.value = withTiming(insets.top + 100, { duration: 600, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }); // approximate streak pill y
+          flameScale.value = withTiming(0.3, { duration: 600 });
+          
+          setTimeout(() => {
+            flameOpacity.value = withTiming(0, { duration: 200 });
+            setDisplayStreak(currentComputed);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setShowAnimation(false);
+            clearStreakAnimation();
+          }, 600);
+        }, 1000);
+
+      } else {
+        setDisplayStreak(currentComputed);
+      }
+    }, [justEarnedStreak, streakDays, lastWorkoutDate])
+  );
 
   const animatedFlameStyle = useAnimatedStyle(() => ({
     transform: [
@@ -81,109 +95,158 @@ export default function Home() {
     router.push(`/builder?id=${id}`);
   };
 
+  const renderRightActions = (id: string) => {
+    return (
+      <View style={styles.swipeActions}>
+        <Pressable style={[styles.swipeBtn, { backgroundColor: '#FF9500' }]} onPress={() => handleEdit(id)}>
+          <Edit2 size={20} color="#FFF" />
+        </Pressable>
+        <Pressable style={[styles.swipeBtn, { backgroundColor: t.colors.accent }]} onPress={() => handleDelete(id)}>
+          <Trash2 size={20} color="#FFF" />
+        </Pressable>
+      </View>
+    );
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: t.colors.background }]}>
-      {justEarnedStreak && (
+    <View style={[styles.wrapper, { backgroundColor: t.colors.background }]}>
+      {showAnimation && (
         <Animated.View style={[{ position: 'absolute', top: 0, left: 0, zIndex: 9999 }, animatedFlameStyle]} pointerEvents="none">
           <Flame size={100} color="#FF9500" fill="#FF9500" />
         </Animated.View>
       )}
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: Math.max(insets.top, 24) }]}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: t.colors.text }]}>Your Workouts</Text>
-          <Pressable 
-            onPress={() => { handlePress(); router.push('/streak'); }}
-            style={[styles.streakPill, { backgroundColor: t.colors.card }]}
-          >
-            <Flame size={16} color={displayStreak > 0 ? "#FF9500" : t.colors.textMuted} fill={displayStreak > 0 ? "#FF9500" : "transparent"} />
-            <Text style={[styles.streakText, { color: displayStreak > 0 ? t.colors.text : t.colors.textMuted }]}>{displayStreak}</Text>
-          </Pressable>
-        </View>
-        
-        {workouts.length === 0 ? (
-          <Animated.View entering={FadeInUp} style={[styles.empty, { backgroundColor: t.colors.card }]}>
-            <Text style={[styles.emptyText, { color: t.colors.textMuted }]}>No workouts yet.</Text>
-            <Text style={[styles.emptySub, { color: t.colors.textMuted }]}>Tap the + button below to create one.</Text>
-          </Animated.View>
-        ) : (
-          workouts.map((w, i) => (
-            <Animated.View 
-              key={w.id} 
-              entering={FadeInUp.delay(i * 100).springify()} 
-              exiting={FadeOutDown}
-              layout={Layout.springify()}
-              style={styles.workoutCardWrapper}
+      <ScrollView 
+        style={styles.container} 
+        contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 20), paddingBottom: 100 }]}
+      >
+        <Animated.View entering={FadeInDown.delay(100).springify()}>
+          <View style={styles.header}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={[styles.appIconBox, { backgroundColor: t.colors.text }]}>
+                <Timer size={24} color={t.colors.background} />
+              </View>
+              <Text style={[styles.headerTitle, { color: t.colors.text }]}>Timer App</Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(200).springify()}>
+          <View style={[styles.sectionHeader, { justifyContent: 'space-between' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[styles.sectionTitle, { color: t.colors.text }]}>Your Workouts</Text>
+              <Text style={[styles.countBadge, { backgroundColor: t.colors.border, color: t.colors.textMuted }]}>
+                {workouts.length}
+              </Text>
+            </View>
+            <Pressable 
+              onPress={() => { handlePress(); router.push('/streak'); }}
+              style={[styles.streakPill, { backgroundColor: t.colors.card }]}
             >
-              <View style={[styles.workoutCard, { backgroundColor: t.colors.card }]}>
-                <View style={styles.workoutHeader}>
-                  <View style={styles.workoutInfo}>
-                    <Text style={[styles.workoutName, { color: t.colors.text }]}>{w.name}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.workoutBlocks, { color: t.colors.textMuted }]}>{w.blocks.length} blocks</Text>
-                      <View style={[styles.countBadge, { backgroundColor: t.colors.border }]}>
-                        <Text style={{ fontSize: 10, color: t.colors.text, fontWeight: '800' }}>
-                          {Math.round(w.blocks.reduce((acc: any, b: any) => acc + (b.durationSeconds || 0), 0) / 60)}m
-                        </Text>
+              <Flame size={16} color={displayStreak > 0 ? "#FF9500" : t.colors.textMuted} fill={displayStreak > 0 ? "#FF9500" : "transparent"} />
+              <Text style={[styles.streakText, { color: displayStreak > 0 ? t.colors.text : t.colors.textMuted }]}>{displayStreak}</Text>
+            </Pressable>
+          </View>
+          
+          {workouts.length === 0 ? (
+            <View style={[styles.empty, { backgroundColor: t.colors.card }]}>
+              <Text style={[styles.emptyText, { color: t.colors.textMuted }]}>No workouts yet. Tap + to create one.</Text>
+            </View>
+          ) : (
+            workouts.map((w, index) => (
+              <Animated.View key={w.id} layout={Layout.springify()} entering={FadeInDown.delay(200 + (index * 50)).springify()}>
+                <Swipeable renderRightActions={() => renderRightActions(w.id)} overshootRight={false}>
+                  <Pressable
+                    accessible={true}
+                    accessibilityRole="button"
+                    onPress={() => { handlePress(); router.push(`/timer/${w.id}`); }}
+                    style={({ pressed }) => [styles.workoutCardWrapper, pressed && styles.pressed]}
+                  >
+                    <View style={[styles.workoutCard, { backgroundColor: t.colors.card }]}>
+                      <View style={styles.workoutInfo}>
+                        <View style={[styles.playIconBox, { backgroundColor: t.colors.text }]}>
+                          <Play size={20} color={t.colors.background} fill={t.colors.background} />
+                        </View>
+                        <View>
+                          <Text style={[styles.workoutName, { color: t.colors.text }]}>{w.name}</Text>
+                          <Text style={[styles.workoutSub, { color: t.colors.textMuted }]}>{w.blocks.length} blocks</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.actionPill, { backgroundColor: t.colors.background }]}>
+                        <Text style={[styles.actionText, { color: t.colors.text }]}>Start</Text>
                       </View>
                     </View>
-                  </View>
-                  <View style={styles.cardActions}>
-                    <Pressable onPress={() => handleEdit(w.id)} style={[styles.actionBtn, { backgroundColor: t.colors.border }]}>
-                      <Edit3 size={18} color={t.colors.text} />
-                    </Pressable>
-                    <Pressable onPress={() => handleDelete(w.id)} style={[styles.actionBtn, { backgroundColor: 'rgba(255, 59, 48, 0.1)' }]}>
-                      <Trash2 size={18} color="#FF3B30" />
-                    </Pressable>
-                  </View>
-                </View>
-                <Pressable 
-                  onPress={() => { handlePress(); router.push(`/timer/${w.id}`); }} 
-                  style={[styles.playBtn, { backgroundColor: t.colors.accent }]}
-                >
-                  <Play size={20} color="#FFF" fill="#FFF" />
-                  <Text style={styles.playBtnText}>Start</Text>
-                </Pressable>
-              </View>
-            </Animated.View>
-          ))
-        )}
+                  </Pressable>
+                </Swipeable>
+              </Animated.View>
+            ))
+          )}
+        </Animated.View>
       </ScrollView>
 
-      {/* Modern Bottom Tab Bar */}
-      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 16), backgroundColor: t.colors.background, borderTopColor: t.colors.border }]}>
-        <View style={styles.tabItem} />
-        
+      {/* Fake Tab Bar */}
+      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: t.colors.background }]}>
         <View style={styles.tabItem}>
-          <Pressable 
-            onPress={() => { handlePress(); router.push('/builder'); }} 
-            style={[styles.fab, { backgroundColor: t.colors.accent }]}
-          >
-            <Plus size={32} color="#FFF" />
-          </Pressable>
+          {/* Left empty as requested */}
         </View>
-
-        <View style={styles.tabItem}>
-          <Pressable onPress={() => router.push('/settings')} style={styles.tabBtn}>
-            <Settings size={28} color={t.colors.textMuted} />
-          </Pressable>
-        </View>
+        <Pressable 
+          onPress={() => { handlePress(); router.push('/builder'); }} 
+          style={[styles.fabBtn, { backgroundColor: t.colors.text, shadowColor: t.colors.text }]}
+        >
+          <Plus size={32} color={t.colors.background} />
+        </Pressable>
+        <Pressable 
+          onPress={() => { handlePress(); router.push('/settings'); }}
+          style={styles.tabItem}
+        >
+          <Settings size={24} color={t.colors.textMuted} />
+          <Text style={[styles.tabLabel, { color: t.colors.textMuted }]}>Settings</Text>
+        </Pressable>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: { flex: 1 },
   container: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 120 },
-  sectionHeader: {
+  content: { padding: 24, gap: 24 },
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
-    paddingHorizontal: 4,
+    marginBottom: 8,
   },
-  sectionTitle: { fontSize: 24, fontWeight: '800' },
+  appIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  greeting: { fontSize: 16, fontWeight: '600' },
+  headerTitle: { fontSize: 28, fontWeight: '800' },
+  profileBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 8 },
+  sectionTitle: { fontSize: 22, fontWeight: '800' },
+  countBadge: { 
+    marginLeft: 8, 
+    paddingHorizontal: 8, 
+    paddingVertical: 2, 
+    borderRadius: 10,
+    overflow: 'hidden',
+    fontWeight: '700',
+  },
   streakPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -198,53 +261,59 @@ const styles = StyleSheet.create({
   },
   empty: { alignItems: 'center', padding: 40, borderRadius: 24 },
   emptyText: { fontSize: 16, fontWeight: '500' },
-  emptySub: { fontSize: 14, marginTop: 8 },
   workoutCardWrapper: { marginBottom: 16 },
-  workoutCard: {
-    borderRadius: 24,
-    padding: 20,
-    gap: 20,
-  },
-  workoutHeader: {
+  workoutCard: { 
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 15,
+    elevation: 3,
   },
-  workoutInfo: { flex: 1, gap: 4 },
-  workoutName: { fontSize: 18, fontWeight: '700' },
-  workoutBlocks: { fontSize: 14, fontWeight: '500' },
-  countBadge: { 
-    marginLeft: 8, 
-    paddingHorizontal: 8, 
-    paddingVertical: 2, 
-    borderRadius: 10,
-    overflow: 'hidden',
-    fontWeight: '700',
-  },
-  cardActions: { flexDirection: 'row', gap: 8 },
-  actionBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  playBtn: {
-    flexDirection: 'row',
+  workoutInfo: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  playIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 16,
-    gap: 8,
   },
-  playBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  workoutName: { fontSize: 18, fontWeight: '800' },
+  workoutSub: { fontSize: 14, fontWeight: '500', marginTop: 2 },
+  actionPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  actionText: { fontSize: 14, fontWeight: '700' },
+  pressed: { transform: [{ scale: 0.97 }] },
+  swipeActions: { flexDirection: 'row', alignItems: 'center', paddingBottom: 16, paddingLeft: 8 },
+  swipeBtn: { width: 64, height: '100%', justifyContent: 'center', alignItems: 'center', borderRadius: 24, marginLeft: 8 },
   tabBar: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', alignItems: 'center',
-    borderTopWidth: 1, paddingHorizontal: 16,
-    paddingTop: 12,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingTop: 16,
   },
-  tabItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  tabBtn: { padding: 12 },
-  fab: {
-    width: 64, height: 64, borderRadius: 32,
-    alignItems: 'center', justifyContent: 'center',
-    marginTop: -32,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+  tabItem: { alignItems: 'center', gap: 4, width: 80 },
+  tabLabel: { fontSize: 12, fontWeight: '600' },
+  fabBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -30,
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
   }
 });
