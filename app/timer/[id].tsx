@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Dimensions, ScrollView, AppState } from 'react-native';
 import { useLocalSearchParams, useRouter, Redirect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import * as Notifications from 'expo-notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, IntervalBlock } from '../../src/store';
@@ -66,9 +66,15 @@ export default function ActiveTimer() {
 
   useEffect(() => {
     Notifications.requestPermissionsAsync();
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'mixWithOthers'
+    }).catch(e => console.warn('Audio mode error', e));
   }, []);
 
   const playSound = async (type: 'work' | 'rest' | 'complete' | 'tick' | 'go') => {
+    if (AppState.currentState !== 'active') return;
     try {
       if (type === 'work') { await workSound.seekTo(0); workSound.play(); }
       else if (type === 'rest') { await restSound.seekTo(0); restSound.play(); }
@@ -96,14 +102,20 @@ export default function ActiveTimer() {
         if (i === blocks.length - 1) {
             await Notifications.scheduleNotificationAsync({
                 content: { title: "Session Complete!", body: `Great job completing ${workout.name}!`, sound: true },
-                trigger: { seconds: accTime } as Notifications.NotificationTriggerInput
+                trigger: { 
+                    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, 
+                    seconds: Math.max(1, accTime)
+                } as Notifications.NotificationTriggerInput
             });
         } else {
             const nextBlock = blocks[i + 1];
             const typeStr = nextBlock.type === 'work' ? 'Work' : 'Rest';
             await Notifications.scheduleNotificationAsync({
                 content: { title: `${typeStr} Time!`, body: nextBlock.name || `Next block started`, sound: true },
-                trigger: { seconds: accTime } as Notifications.NotificationTriggerInput
+                trigger: { 
+                    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, 
+                    seconds: Math.max(1, accTime)
+                } as Notifications.NotificationTriggerInput
             });
         }
         if (i < blocks.length - 1) {
