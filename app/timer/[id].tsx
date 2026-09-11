@@ -3,16 +3,25 @@ import { View, Text, StyleSheet, Pressable, Dimensions, ScrollView } from 'react
 import { useLocalSearchParams, useRouter, Redirect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useAudioPlayer } from 'expo-audio';
+import * as Notifications from 'expo-notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, IntervalBlock } from '../../src/store';
 import { useAppTheme } from '../../src/theme';
 import Animated, { 
   FadeIn, FadeOut, FadeInRight, FadeOutLeft, ZoomIn, ZoomOut, runOnJS,
   useSharedValue, useAnimatedStyle, useAnimatedProps, withSpring, withTiming,
-  interpolateColor, Extrapolation, interpolate
+  interpolateColor, Extrapolation, interpolate, Easing
 } from 'react-native-reanimated';
 import { Play, Pause, X, SkipForward, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true, shouldShowBanner: true, shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.75;
@@ -41,6 +50,7 @@ export default function ActiveTimer() {
   
   const currentBlock = blocks[blockIdx] || blocks[0];
   const [timeLeft, setTimeLeft] = useState(currentBlock.durationSeconds);
+  const [endTime, setEndTime] = useState<number | null>(null);
   
   const progress = useSharedValue(1);
   const svgOpacity = useSharedValue(1);
@@ -53,6 +63,10 @@ export default function ActiveTimer() {
   const completeSound = useAudioPlayer(require('../../assets/sounds/complete.wav'));
   const tickSound = useAudioPlayer(require('../../assets/sounds/tick.wav'));
   const goSound = useAudioPlayer(require('../../assets/sounds/go.wav'));
+
+  useEffect(() => {
+    Notifications.requestPermissionsAsync();
+  }, []);
 
   const playSound = async (type: 'work' | 'rest' | 'complete' | 'tick' | 'go') => {
     try {
@@ -75,41 +89,48 @@ export default function ActiveTimer() {
     playSound('go');
   };
 
+  const scheduleNotifications = async (currentLeft: number, currentIdx: number) => {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    let accTime = currentLeft;
+    for (let i = currentIdx; i < blocks.length; i++) {
+        if (i === blocks.length - 1) {
+            await Notifications.scheduleNotificationAsync({
+                content: { title: "Session Complete!", body: `Great job completing ${workout.name}!`, sound: true },
+                trigger: { seconds: accTime } as Notifications.NotificationTriggerInput
+            });
+        } else {
+            const nextBlock = blocks[i + 1];
+            const typeStr = nextBlock.type === 'work' ? 'Work' : 'Rest';
+            await Notifications.scheduleNotificationAsync({
+                content: { title: `${typeStr} Time!`, body: nextBlock.name || `Next block started`, sound: true },
+                trigger: { seconds: accTime } as Notifications.NotificationTriggerInput
+            });
+        }
+        if (i < blocks.length - 1) {
+            accTime += blocks[i + 1].durationSeconds;
+        }
+    }
+  };
+
+  // Robust timer logic that survives backgrounding!
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
-    if (state === 'running') {
+    if (state === 'running' && endTime) {
       interval = setInterval(() => {
+        const now = Date.now();
+        const diff = Math.max(0, Math.ceil((endTime - now) / 1000));
+        
         setTimeLeft((prev) => {
-          if (prev <= 0) return 0;
-          if (prev === 1) playEnd();
-          else if (prev <= 4) playTick();
-          return prev - 1;
+          if (prev !== diff) {
+            if (diff === 0) playEnd();
+            else if (diff <= 3 && diff > 0 && diff === prev - 1) playTick();
+          }
+          return diff;
         });
-      }, 1000);
+      }, 200);
     }
     return () => clearInterval(interval);
-  }, [state]);
-
-  useEffect(() => {
-    if (state === 'running' && timeLeft === 0) {
-      const timerId = setTimeout(() => {
-        if (blockIdx < blocks.length - 1) {
-          const nextIdx = blockIdx + 1;
-          const nextType = blocks[nextIdx].type;
-          setBlockIdx(nextIdx);
-          setTimeLeft(blocks[nextIdx].durationSeconds);
-          progress.value = 1;
-          playSound(nextType);
-        } else {
-          setState('finished');
-          const totalDuration = blocks.reduce((acc, b) => acc + b.durationSeconds, 0);
-          logWorkout(totalDuration);
-          playSound('complete');
-        }
-      }, 1200);
-      return () => clearTimeout(timerId);
-    }
-  }, [timeLeft, state, blockIdx]);
+  }, [state, endTime]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -117,9 +138,11 @@ export default function ActiveTimer() {
       interval = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
-            playEnd();
-            setState('running');
-            playSound(currentBlock.type);
+            clearInterval(interval);
+            playSound(blocks[0].type);
+            setEndTime(Date.now() + timeLeft * 1000);
+            scheduleNotifications(timeLeft, blockIdx);
+            runOnJS(setState)('running');
             return 0;
           }
           playTick();
@@ -128,19 +151,59 @@ export default function ActiveTimer() {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [state]);
+  }, [state, timeLeft, blockIdx, blocks]);
 
   useEffect(() => {
-    if (state === 'running') {
-      const target = timeLeft / currentBlock.durationSeconds;
-      progress.value = withTiming(target, { duration: 1000 });
+    if (state === 'running' && timeLeft === 0) {
+      const timerId = setTimeout(() => {
+        if (blockIdx < blocks.length - 1) {
+          const nextIdx = blockIdx + 1;
+          const nextType = blocks[nextIdx].type;
+          const nextLeft = blocks[nextIdx].durationSeconds;
+          
+          setBlockIdx(nextIdx);
+          setTimeLeft(nextLeft);
+          setEndTime(Date.now() + nextLeft * 1000);
+          progress.value = 1;
+          playSound(nextType);
+        } else {
+          setState('finished');
+          const totalDuration = blocks.reduce((acc, b) => acc + b.durationSeconds, 0);
+          logWorkout(totalDuration);
+          playSound('complete');
+        }
+      }, 1000);
+      return () => clearTimeout(timerId);
     }
-  }, [timeLeft, state]);
+  }, [timeLeft, state, blockIdx, blocks]);
 
-  // Scroll to active item in timeline
+  useEffect(() => {
+    if (state === 'idle') {
+      progress.value = 1;
+    } else {
+      progress.value = withTiming(timeLeft / currentBlock.durationSeconds, { duration: 1000, easing: Easing.linear });
+    }
+  }, [timeLeft, currentBlock.durationSeconds, state]);
+
+  const accumulatedTimes = useMemo(() => {
+    const times = [];
+    let acc = 0;
+    for (let b of blocks) {
+      times.push(acc);
+      acc += b.durationSeconds;
+    }
+    return times;
+  }, [blocks]);
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   useEffect(() => {
     if (scrollRef.current && state === 'running') {
-      const ITEM_WIDTH = 120; // approximate width of timeline item
+      const ITEM_WIDTH = 120;
       const x = Math.max(0, blockIdx * ITEM_WIDTH - width / 2 + ITEM_WIDTH / 2);
       scrollRef.current.scrollTo({ x, animated: true });
     }
@@ -155,6 +218,8 @@ export default function ActiveTimer() {
   const handlePause = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     svgOpacity.value = withTiming(0.3, { duration: 300 });
+    Notifications.cancelAllScheduledNotificationsAsync();
+    setEndTime(null);
     setState('paused');
   };
 
@@ -165,7 +230,11 @@ export default function ActiveTimer() {
     const currentTarget = timeLeft / currentBlock.durationSeconds;
     resumeProgress.value = withTiming(currentTarget, { duration: 1000 }, () => {
       svgOpacity.value = 1;
-      runOnJS(setState)('running');
+      runOnJS(() => {
+        setEndTime(Date.now() + timeLeft * 1000);
+        scheduleNotifications(timeLeft, blockIdx);
+        setState('running');
+      })();
     });
   };
 
@@ -174,15 +243,24 @@ export default function ActiveTimer() {
     if (blockIdx < blocks.length - 1) {
       const nextIdx = blockIdx + 1;
       const nextType = blocks[nextIdx].type;
+      const nextLeft = blocks[nextIdx].durationSeconds;
+      
       setBlockIdx(nextIdx);
-      setTimeLeft(blocks[nextIdx].durationSeconds);
+      setTimeLeft(nextLeft);
       progress.value = 1;
       playSound(nextType);
-      if (state === 'paused') {
+      
+      if (state === 'running') {
+        setEndTime(Date.now() + nextLeft * 1000);
+        scheduleNotifications(nextLeft, nextIdx);
+      } else if (state === 'paused') {
         svgOpacity.value = withTiming(1, { duration: 300 });
+        setEndTime(Date.now() + nextLeft * 1000);
+        scheduleNotifications(nextLeft, nextIdx);
         setState('running');
       }
     } else {
+      Notifications.cancelAllScheduledNotificationsAsync();
       setState('finished');
       const totalDuration = blocks.reduce((acc, b) => acc + b.durationSeconds, 0);
       logWorkout(totalDuration);
@@ -191,6 +269,7 @@ export default function ActiveTimer() {
   };
 
   const handleClose = () => {
+    Notifications.cancelAllScheduledNotificationsAsync();
     router.back();
   };
 
@@ -207,24 +286,8 @@ export default function ActiveTimer() {
     };
   });
 
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
   const isWork = currentBlock.type === 'work';
-  const themeColor = isWork ? t.colors.accent : '#007AFF';
-  const trackColor = t.colors.card;
-
-  const accumulatedTimes = useMemo(() => {
-    let total = 0;
-    return blocks.map(b => {
-      const start = total;
-      total += b.durationSeconds;
-      return start;
-    });
-  }, [blocks]);
+  const themeColor = isWork ? t.colors.accent : t.colors.textMuted;
 
   return (
     <Animated.View entering={FadeIn.duration(400)} style={[styles.container, { backgroundColor: t.colors.background }]}>
@@ -233,8 +296,8 @@ export default function ActiveTimer() {
           <Animated.View entering={FadeIn.delay(500).duration(500)}>
             <CheckCircle2 size={100} color={t.colors.success} />
           </Animated.View>
-          <Text style={[styles.finishedTitle, { color: t.colors.text, marginTop: 24 }]}>Workout Complete!</Text>
-          <Text style={[styles.finishedSub, { color: t.colors.textMuted }]}>Great job crushing {workout.name}.</Text>
+          <Text style={[styles.finishedTitle, { color: t.colors.text, marginTop: 24 }]}>Session Complete!</Text>
+          <Text style={[styles.finishedSub, { color: t.colors.textMuted }]}>Great job completing {workout.name}.</Text>
           <Pressable onPress={handleClose} style={[styles.finishedBtn, { backgroundColor: t.colors.card }]}>
             <ArrowLeft size={32} color={t.colors.text} />
           </Pressable>
@@ -251,21 +314,22 @@ export default function ActiveTimer() {
             <View style={{ width: 40 }} />
           </View>
 
-          <View style={{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', marginTop: -20 }}>
+          <View style={{ flex: 1, justifyContent: 'center', width: '100%', alignItems: 'center' }}>
             <Animated.View 
-              key={`wrap-${blockIdx}`}
-              entering={FadeIn.duration(400)}
+              key={`block-${blockIdx}`}
+              entering={FadeIn.duration(400)} 
               exiting={FadeOut.duration(400)}
-              style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
             >
               <View style={styles.timerWrapper}>
-                <View>
+                <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE, marginTop: 40 }}>
                   <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
                     <Circle
                       cx={CIRCLE_SIZE / 2}
                       cy={CIRCLE_SIZE / 2}
                       r={RADIUS}
-                      stroke={trackColor}
+                      stroke={t.colors.border}
                       strokeWidth={STROKE_WIDTH}
                       fill="transparent"
                     />
@@ -374,7 +438,7 @@ export default function ActiveTimer() {
           <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 20) }]}>
             {state === 'idle' || state === 'countdown' ? (
               <Pressable onPress={state === 'idle' ? handleStart : undefined} style={[styles.startBtn, { backgroundColor: t.colors.text, opacity: state === 'countdown' ? 0.5 : 1 }]}>
-                <Text style={[styles.startBtnText, { color: t.colors.background }]}>Start Workout</Text>
+                <Text style={[styles.startBtnText, { color: t.colors.background }]}>Start Session</Text>
               </Pressable>
             ) : (
               <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.pillControls}>

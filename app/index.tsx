@@ -134,7 +134,7 @@ export default function Home() {
         <Animated.View entering={FadeInDown.delay(200).springify()}>
           <View style={[styles.sectionHeader, { justifyContent: 'space-between' }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={[styles.sectionTitle, { color: t.colors.text }]}>Your Workouts</Text>
+              <Text style={[styles.sectionTitle, { color: t.colors.text }]}>Your Routines</Text>
               <Text style={[styles.countBadge, { backgroundColor: t.colors.border, color: t.colors.textMuted }]}>
                 {workouts.length}
               </Text>
@@ -150,7 +150,7 @@ export default function Home() {
           
           {workouts.length === 0 ? (
             <View style={[styles.empty, { backgroundColor: t.colors.card }]}>
-              <Text style={[styles.emptyText, { color: t.colors.textMuted }]}>No workouts yet. Tap + to create one.</Text>
+              <Text style={[styles.emptyText, { color: t.colors.textMuted }]}>No routines yet. Tap + to create one.</Text>
             </View>
           ) : (
             workouts.map((w, index) => (

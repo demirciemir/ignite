@@ -83,7 +83,7 @@ export default function StreakModal() {
           <Text style={[styles.streakNumber, { color: t.colors.text }]}>{displayStreak}</Text>
           <Text style={[styles.streakTitle, { color: t.colors.text }]}>Day Streak</Text>
           <Text style={[styles.streakSub, { color: t.colors.textMuted }]}>
-            {isStreakActive ? "You are doing really great!" : "Start a workout to ignite your streak."}
+            {isStreakActive ? "You are doing really great!" : "Complete a session to ignite your streak."}
           </Text>
         </View>
 
@@ -118,7 +118,7 @@ export default function StreakModal() {
               </View>
               <View style={[styles.statDivider, { backgroundColor: t.colors.border }]} />
               <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: t.colors.textMuted }]}>Workouts</Text>
+                <Text style={[styles.statLabel, { color: t.colors.textMuted }]}>Sessions</Text>
                 <Text style={[styles.statValue, { color: t.colors.text }]}>{totalWorkoutsLogged}</Text>
               </View>
               <View style={[styles.statDivider, { backgroundColor: t.colors.border }]} />

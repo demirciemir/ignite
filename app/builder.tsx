@@ -204,14 +204,14 @@ export default function BuilderScreen() {
         <View style={[styles.dragIndicator, { backgroundColor: t.colors.border }]} />
       </View>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: t.colors.text }]}>{id ? 'Edit Workout' : 'New Workout'}</Text>
+        <Text style={[styles.title, { color: t.colors.text }]}>{id ? 'Edit Routine' : 'New Routine'}</Text>
       </View>
 
       <View style={styles.inputContainer}>
         <View style={[{ flexDirection: 'row', alignItems: 'center', borderRadius: 16, backgroundColor: t.colors.card }]}>
           <TextInput
             style={[styles.input, { flex: 1, color: t.colors.text }]}
-            placeholder="Tap to name workout..."
+            placeholder="Tap to name routine..."
             placeholderTextColor={t.colors.textMuted}
             value={name}
             onChangeText={setName}
@@ -236,7 +236,7 @@ export default function BuilderScreen() {
           onPress={saveWorkout}
         >
           <Check size={24} color={t.colors.background} />
-          <Text style={[styles.saveBtnText, { color: t.colors.background }]}>Save Workout</Text>
+          <Text style={[styles.saveBtnText, { color: t.colors.background }]}>Save Routine</Text>
         </Pressable>
       </View>
 
