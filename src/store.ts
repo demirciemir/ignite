@@ -35,6 +35,8 @@ export interface AppState {
   totalWorkoutsLogged: number;
   totalMinutesLogged: number;
   themePreference: ThemePreference;
+  prepTime: number;
+  setPrepTime: (time: number) => void;
   justEarnedStreak: boolean;
   addWorkout: (workout: Workout) => void;
   removeWorkout: (id: string) => void;
@@ -56,6 +58,8 @@ export const useStore = create<AppState>()(
       totalWorkoutsLogged: 0,
       totalMinutesLogged: 0,
       themePreference: 'system',
+      prepTime: 3,
+      setPrepTime: (time) => set({ prepTime: time }),
       justEarnedStreak: false,
       addWorkout: (workout) => set((state) => ({ workouts: [...state.workouts, workout] })),
       removeWorkout: (id) => set((state) => ({ workouts: state.workouts.filter(w => w.id !== id) })),

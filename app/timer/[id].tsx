@@ -12,7 +12,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, useAnimatedProps, withSpring, withTiming,
   interpolateColor, Extrapolation, interpolate, Easing
 } from 'react-native-reanimated';
-import { Play, Pause, X, SkipForward, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
+import { Play, Pause, X, SkipForward, ArrowLeft, CheckCircle2, Timer } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 Notifications.setNotificationHandler({
@@ -57,7 +57,22 @@ export default function ActiveTimer() {
   // Derived UI State
   const [blockIdx, setBlockIdx] = useState(0);
   const [timeLeft, setTimeLeft] = useState(blocks[0].durationSeconds);
-  const [countdown, setCountdown] = useState(3);
+  const prepTime = useStore((s) => s.prepTime);
+  const setPrepTime = useStore((s) => s.setPrepTime);
+  const [countdown, setCountdown] = useState(prepTime);
+
+  useEffect(() => {
+    if (state === 'idle') {
+      setCountdown(prepTime);
+    }
+  }, [prepTime, state]);
+
+  const cyclePrepTime = () => {
+    Haptics.selectionAsync();
+    const cycle = [0, 3, 5, 10, 15];
+    const nextIdx = (cycle.indexOf(prepTime) + 1) % cycle.length;
+    setPrepTime(cycle[nextIdx]);
+  };
   
   const currentBlock = blocks[blockIdx] || blocks[0];
   
@@ -146,7 +161,7 @@ export default function ActiveTimer() {
       interval = setInterval(() => {
          const now = Date.now();
          const elapsed = Math.floor((now - countdownStartTime) / 1000);
-         const remaining = 3 - elapsed;
+         const remaining = prepTime - elapsed;
          
          if (remaining !== countdown) {
             if (remaining > 0) {
@@ -272,9 +287,19 @@ export default function ActiveTimer() {
 
   const handleStart = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setState('countdown');
-    setCountdownStartTime(Date.now());
-    playTick();
+    if (prepTime === 0) {
+       playSound(blocks[0].type);
+       setBaseTotalElapsed(0);
+       setCurrentTotalElapsed(0);
+       const startTime = Date.now();
+       setRunningStartTime(startTime);
+       scheduleNotifications(0);
+       setState('running');
+    } else {
+       setState('countdown');
+       setCountdownStartTime(Date.now());
+       playTick();
+    }
   };
 
   const handlePause = () => {
@@ -502,9 +527,21 @@ export default function ActiveTimer() {
 
           <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 20) }]}>
             {state === 'idle' || state === 'countdown' ? (
-              <Pressable onPress={state === 'idle' ? handleStart : undefined} style={[styles.startBtn, { backgroundColor: t.colors.text, opacity: state === 'countdown' ? 0.5 : 1 }]}>
-                <Text style={[styles.startBtnText, { color: t.colors.background }]}>Start Session</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 12, width: '100%', opacity: state === 'countdown' ? 0.5 : 1 }}>
+                <Pressable onPress={state === 'idle' ? handleStart : undefined} style={[styles.startBtn, { flex: 1, backgroundColor: t.colors.text }]}>
+                  <Text style={[styles.startBtnText, { color: t.colors.background }]}>Start Session</Text>
+                </Pressable>
+                
+                {state === 'idle' && (
+                  <Pressable 
+                    onPress={cyclePrepTime} 
+                    style={[styles.startBtn, { width: 90, backgroundColor: t.colors.card, flexDirection: 'row', gap: 6 }]}
+                  >
+                    <Timer size={20} color={t.colors.text} />
+                    <Text style={[styles.startBtnText, { color: t.colors.text, fontSize: 16 }]}>{prepTime > 0 ? prepTime + 's' : 'Off'}</Text>
+                  </Pressable>
+                )}
+              </View>
             ) : (
               <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.pillControls}>
                 <Pressable 
