@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react
 import { useStore } from '../src/store';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, Settings, Play, Trash2, Edit2, Timer, Flame } from 'lucide-react-native';
+import { Plus, Settings, Play, Trash2, Edit2, Timer, Flame, ChevronLeft } from 'lucide-react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '../src/theme';
@@ -169,11 +169,13 @@ export default function Home() {
                         </View>
                         <View>
                           <Text style={[styles.workoutName, { color: t.colors.text }]}>{w.name}</Text>
-                          <Text style={[styles.workoutSub, { color: t.colors.textMuted }]}>{w.blocks.length} blocks</Text>
+                          <Text style={[styles.workoutSub, { color: t.colors.textMuted }]}>
+                            {w.blocks.length} blocks  •  {Math.max(1, Math.round(w.blocks.reduce((acc: any, b: any) => acc + (b.durationSeconds || 0), 0) / 60))} min
+                          </Text>
                         </View>
                       </View>
-                      <View style={[styles.actionPill, { backgroundColor: t.colors.background }]}>
-                        <Text style={[styles.actionText, { color: t.colors.text }]}>Start</Text>
+                      <View style={styles.swipeHint}>
+                        <ChevronLeft size={20} color={t.colors.textMuted} opacity={0.5} />
                       </View>
                     </View>
                   </Pressable>
@@ -283,12 +285,11 @@ const styles = StyleSheet.create({
   },
   workoutName: { fontSize: 18, fontWeight: '800' },
   workoutSub: { fontSize: 14, fontWeight: '500', marginTop: 2 },
-  actionPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  swipeHint: {
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  actionText: { fontSize: 14, fontWeight: '700' },
   pressed: { transform: [{ scale: 0.97 }] },
   swipeActions: { flexDirection: 'row', alignItems: 'center', paddingBottom: 16, paddingLeft: 8 },
   swipeBtn: { width: 64, height: '100%', justifyContent: 'center', alignItems: 'center', borderRadius: 24, marginLeft: 8 },
