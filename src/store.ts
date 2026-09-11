@@ -35,12 +35,14 @@ export interface AppState {
   totalWorkoutsLogged: number;
   totalMinutesLogged: number;
   themePreference: ThemePreference;
+  justEarnedStreak: boolean;
   addWorkout: (workout: Workout) => void;
   removeWorkout: (id: string) => void;
   updateWorkout: (id: string, workout: Workout) => void;
   logWorkout: (durationSeconds: number) => void;
   restoreStreak: () => void;
   setThemePreference: (pref: ThemePreference) => void;
+  clearStreakAnimation: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -54,6 +56,7 @@ export const useStore = create<AppState>()(
       totalWorkoutsLogged: 0,
       totalMinutesLogged: 0,
       themePreference: 'system',
+      justEarnedStreak: false,
       addWorkout: (workout) => set((state) => ({ workouts: [...state.workouts, workout] })),
       removeWorkout: (id) => set((state) => ({ workouts: state.workouts.filter(w => w.id !== id) })),
       updateWorkout: (id, workout) => set((state) => ({ 
@@ -87,7 +90,8 @@ export const useStore = create<AppState>()(
             lastWorkoutDate: today,
             streakDays: newStreak,
             totalWorkoutsLogged: newWorkouts,
-            totalMinutesLogged: newMinutes
+            totalMinutesLogged: newMinutes,
+            justEarnedStreak: true
           };
         });
       },
@@ -108,6 +112,7 @@ export const useStore = create<AppState>()(
           return state;
         });
       },
+      clearStreakAnimation: () => set({ justEarnedStreak: false }),
       setThemePreference: (pref) => set({ themePreference: pref }),
     }),
     {

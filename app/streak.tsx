@@ -36,9 +36,11 @@ export default function StreakModal() {
   const yesterdayStr = yesterday.toLocaleDateString('en-CA');
 
   let displayStreak = streakDays;
-  if (lastWorkoutDate && lastWorkoutDate !== today && lastWorkoutDate !== yesterdayStr) {
+  if (!lastWorkoutDate || (lastWorkoutDate !== today && lastWorkoutDate !== yesterdayStr)) {
     displayStreak = 0; // It's broken!
   }
+
+  const isStreakActive = displayStreak > 0;
 
   // Restore logic
   const canRestore = displayStreak === 0 && streakDays > 0 && 
@@ -76,11 +78,13 @@ export default function StreakModal() {
         {/* Flame Header */}
         <View style={styles.hero}>
           <View style={[styles.flameCircle, { borderColor: t.colors.border }]}>
-            <Flame size={48} color="#FF9500" fill="#FF9500" />
+            <Flame size={48} color={isStreakActive ? "#FF9500" : t.colors.textMuted} fill={isStreakActive ? "#FF9500" : "transparent"} />
           </View>
           <Text style={[styles.streakNumber, { color: t.colors.text }]}>{displayStreak}</Text>
           <Text style={[styles.streakTitle, { color: t.colors.text }]}>Day Streak</Text>
-          <Text style={[styles.streakSub, { color: t.colors.textMuted }]}>You are doing really great!</Text>
+          <Text style={[styles.streakSub, { color: t.colors.textMuted }]}>
+            {isStreakActive ? "You are doing really great!" : "Start a workout to ignite your streak."}
+          </Text>
         </View>
 
         {/* Calendar Row */}
@@ -95,9 +99,7 @@ export default function StreakModal() {
                   <Check size={16} color="#FFF" />
                 </View>
               ) : (
-                <View style={styles.dayCircle}>
-                  <Text style={[styles.dayDate, { color: t.colors.text }]}>{day.date}</Text>
-                </View>
+                <View style={[styles.dayCircle, { borderWidth: 2, borderColor: t.colors.border }]} />
               )}
             </View>
           ))}
@@ -105,7 +107,7 @@ export default function StreakModal() {
 
         {/* Stats Card */}
         <View style={styles.statsContainer}>
-          <View style={[styles.statsHeader, { backgroundColor: t.colors.border + '80' }]}>
+          <View style={[styles.statsHeader]}>
             <Text style={[styles.statsTitle, { color: t.colors.textMuted }]}>Your Stats</Text>
           </View>
           <View style={[styles.statsCard, { backgroundColor: t.colors.card }]}>
@@ -241,10 +243,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
-  dayDate: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
   statsContainer: {
     width: '100%',
     marginBottom: 32,
@@ -252,10 +250,7 @@ const styles = StyleSheet.create({
   statsHeader: {
     alignItems: 'center',
     paddingVertical: 12,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginBottom: -20, // overlap card
-    zIndex: 0,
+    marginBottom: 8,
   },
   statsTitle: {
     fontSize: 12,
@@ -270,7 +265,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 15,
     elevation: 3,
-    zIndex: 1,
   },
   statsRow: {
     flexDirection: 'row',
