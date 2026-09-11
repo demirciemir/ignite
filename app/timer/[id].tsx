@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable, Dimensions, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter, Redirect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useAudioPlayer } from 'expo-audio';
@@ -15,8 +15,8 @@ import { Play, Pause, X, SkipForward } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
-const CIRCLE_SIZE = width * 0.8;
-const STROKE_WIDTH = 20;
+const CIRCLE_SIZE = width * 0.75;
+const STROKE_WIDTH = 8;
 const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
@@ -42,8 +42,7 @@ export default function ActiveTimer() {
   const [timeLeft, setTimeLeft] = useState(currentBlock.durationSeconds);
   
   const progress = useSharedValue(1);
-  const fillProgress = useSharedValue(0);
-  const [isResuming, setIsResuming] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   // Sound players
   const workSound = useAudioPlayer(require('../../assets/sounds/work.wav'));
@@ -90,7 +89,7 @@ export default function ActiveTimer() {
 
   useEffect(() => {
     if (state === 'running' && timeLeft === 0) {
-      const t = setTimeout(() => {
+      const timerId = setTimeout(() => {
         if (blockIdx < blocks.length - 1) {
           const nextIdx = blockIdx + 1;
           const nextType = blocks[nextIdx].type;
@@ -103,7 +102,7 @@ export default function ActiveTimer() {
           playSound('complete');
         }
       }, 1200);
-      return () => clearTimeout(t);
+      return () => clearTimeout(timerId);
     }
   }, [timeLeft, state, blockIdx]);
 
@@ -124,92 +123,50 @@ export default function ActiveTimer() {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [state, currentBlock.type]);
-
-  useEffect(() => {
-    if (state === 'idle') {
-      progress.value = withSpring(1);
-    } else if (state === 'countdown') {
-      progress.value = withTiming(1); // Keep it full during countdown
-    } else if (state === 'finished') {
-      progress.value = withTiming(0, { duration: 500 });
-    } else {
-      const currentDur = currentBlock.durationSeconds;
-      const target = timeLeft / currentDur;
-      if (timeLeft === currentDur) {
-        progress.value = target;
-      } else {
-        progress.value = withTiming(target, { duration: 1000 });
-      }
-    }
-  }, [timeLeft, state, currentBlock.durationSeconds]);
-
-  const animatedCircleProps = useAnimatedProps(() => {
-    return {
-      strokeDashoffset: CIRCUMFERENCE * (1 - progress.value),
-    };
-  });
-
-  const animatedBgStyle = useAnimatedStyle(() => {
-    if (state === 'finished') {
-      return { backgroundColor: withTiming(t.colors.success, { duration: 800 }) };
-    }
-    const isWork = currentBlock.type === 'work';
-    const activeColor = isWork ? '#FF3B30' : '#007AFF'; // Red for work, Blue for rest
-    const bg = state === 'idle' || state === 'countdown' ? t.colors.background : activeColor;
-    return {
-      backgroundColor: withTiming(bg, { duration: 800 }),
-    };
-  });
-
-  const dimStyle = useAnimatedStyle(() => {
-    return {
-      opacity: withTiming(state === 'paused' ? 0.3 : 1, { duration: 300 }),
-      transform: [{ scale: withTiming(state === 'paused' ? 0.95 : 1, { duration: 300 }) }]
-    };
   }, [state]);
 
-  const fillAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      height: `${fillProgress.value * 100}%`
-    };
-  });
+  useEffect(() => {
+    if (state === 'running') {
+      const target = timeLeft / currentBlock.durationSeconds;
+      progress.value = withTiming(target, { duration: 1000 });
+    }
+  }, [timeLeft, state]);
+
+  // Scroll to active item in timeline
+  useEffect(() => {
+    if (scrollRef.current && state === 'running') {
+      const ITEM_WIDTH = 120; // approximate width of timeline item
+      const x = Math.max(0, blockIdx * ITEM_WIDTH - width / 2 + ITEM_WIDTH / 2);
+      scrollRef.current.scrollTo({ x, animated: true });
+    }
+  }, [blockIdx, state]);
 
   const handleStart = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setCountdown(3);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setState('countdown');
     playTick();
   };
 
   const handlePause = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setState('paused');
-    setIsResuming(false);
-    fillProgress.value = 0;
   };
 
   const handleResume = () => {
-    if (isResuming) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsResuming(true);
-    fillProgress.value = 1;
-    fillProgress.value = withTiming(0, { duration: 1000 }, (finished) => {
-      if (finished) {
-        runOnJS(setState)('running');
-        runOnJS(setIsResuming)(false);
-      }
-    });
+    setState('running');
   };
 
   const handleSkip = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (blockIdx < blocks.length - 1) {
       const nextIdx = blockIdx + 1;
+      const nextType = blocks[nextIdx].type;
       setBlockIdx(nextIdx);
       setTimeLeft(blocks[nextIdx].durationSeconds);
       progress.value = 1;
-      playSound(blocks[nextIdx].type);
+      playSound(nextType);
+      if (state === 'paused') setState('running');
     } else {
       setState('finished');
       playSound('complete');
@@ -217,22 +174,36 @@ export default function ActiveTimer() {
   };
 
   const handleClose = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   };
 
+  const animatedCircleProps = useAnimatedProps(() => {
+    return {
+      strokeDashoffset: CIRCUMFERENCE * (1 - progress.value)
+    };
+  });
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m > 0 ? m + ':' : ''}${s.toString().padStart(2, '0')}`;
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const isWork = currentBlock.type === 'work';
-  const themeColor = state === 'idle' || state === 'countdown' ? t.colors.text : '#FFFFFF';
-  const trackColor = state === 'idle' || state === 'countdown' ? t.colors.border : 'rgba(255,255,255,0.2)';
+  const themeColor = isWork ? t.colors.accent : '#007AFF';
+  const trackColor = t.colors.card;
+
+  const accumulatedTimes = useMemo(() => {
+    let total = 0;
+    return blocks.map(b => {
+      const start = total;
+      total += b.durationSeconds;
+      return start;
+    });
+  }, [blocks]);
 
   return (
-    <Animated.View style={[styles.container, animatedBgStyle]}>
+    <Animated.View entering={FadeIn.duration(400)} style={[styles.container, { backgroundColor: t.colors.background }]}>
       {state === 'finished' ? (
         <Animated.View entering={FadeIn.delay(300).springify()} style={[styles.finishedView, StyleSheet.absoluteFill]}>
           <Text style={styles.finishedTitle}>Workout Complete!</Text>
@@ -244,99 +215,131 @@ export default function ActiveTimer() {
       ) : (
         <Animated.View exiting={FadeOut} style={[StyleSheet.absoluteFill, { alignItems: 'center' }]}>
           <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-            <Pressable onPress={handleClose} style={styles.iconBtn}>
-              <X size={28} color={themeColor} />
+            <Pressable onPress={handleClose} style={[styles.iconBtn, { backgroundColor: t.colors.card }]}>
+              <X size={24} color={t.colors.text} />
             </Pressable>
-            <Text style={[styles.workoutTitle, { color: themeColor }]}>
-              {blockIdx + 1} / {blocks.length}
+            <Text style={[styles.workoutTitle, { color: t.colors.text }]}>
+              {workout.name}
             </Text>
-            <View style={{ width: 28 }} />
+            <View style={{ width: 40 }} />
           </View>
 
-          <View style={{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', marginTop: -20 }}>
             <Animated.View 
               key={blockIdx}
               entering={FadeInRight.duration(300)}
               exiting={FadeOutLeft.duration(300)}
               style={styles.timerWrapper}
             >
-              <Animated.View style={[styles.timerWrapper, dimStyle]}>
-                <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
-                  <Circle
-                    cx={CIRCLE_SIZE / 2}
-                    cy={CIRCLE_SIZE / 2}
-                    r={RADIUS}
-                    stroke={trackColor}
-                    strokeWidth={STROKE_WIDTH}
-                    fill="transparent"
-                  />
-                  <AnimatedCircle
-                    cx={CIRCLE_SIZE / 2}
-                    cy={CIRCLE_SIZE / 2}
-                    r={RADIUS}
-                    stroke={themeColor}
-                    strokeWidth={STROKE_WIDTH}
-                    fill="transparent"
-                    strokeDasharray={CIRCUMFERENCE}
-                    strokeLinecap="round"
-                    animatedProps={animatedCircleProps}
-                    transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
-                  />
-                </Svg>
-                <View style={styles.timeDisplay}>
-                  {state === 'countdown' ? (
-                    <Animated.Text 
-                      key={`cd-${countdown}`} 
-                      entering={ZoomIn.springify().damping(14).withInitialValues({ transform: [{ scale: 0.3 }] })} 
-                      exiting={ZoomOut.duration(150)}
-                      style={[styles.timeText, { color: themeColor, fontSize: 120 }]}
-                    >
-                      {countdown}
-                    </Animated.Text>
-                  ) : (
-                    <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(300)} style={{ alignItems: 'center' }}>
-                      <Text style={[styles.timeText, { color: themeColor }]}>
-                        {formatTime(timeLeft)}
-                      </Text>
-                      <Text style={[styles.statusText, { color: themeColor }]} numberOfLines={1} adjustsFontSizeToFit>
-                        {state === 'idle' ? 'READY' : (currentBlock.name ? currentBlock.name.toUpperCase() : (isWork ? 'WORK' : 'REST'))}
-                      </Text>
-                    </Animated.View>
-                  )}
-                </View>
-              </Animated.View>
+              <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
+                <Circle
+                  cx={CIRCLE_SIZE / 2}
+                  cy={CIRCLE_SIZE / 2}
+                  r={RADIUS}
+                  stroke={trackColor}
+                  strokeWidth={STROKE_WIDTH}
+                  fill="transparent"
+                />
+                <AnimatedCircle
+                  cx={CIRCLE_SIZE / 2}
+                  cy={CIRCLE_SIZE / 2}
+                  r={RADIUS}
+                  stroke={themeColor}
+                  strokeWidth={STROKE_WIDTH}
+                  fill="transparent"
+                  strokeDasharray={CIRCUMFERENCE}
+                  strokeLinecap="round"
+                  animatedProps={animatedCircleProps}
+                  transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
+                />
+              </Svg>
+              <View style={styles.timeDisplay}>
+                {state === 'countdown' ? (
+                  <Animated.Text 
+                    key={`cd-${countdown}`} 
+                    entering={ZoomIn.springify().damping(14).withInitialValues({ transform: [{ scale: 0.3 }] })} 
+                    exiting={ZoomOut.duration(150)}
+                    style={[styles.timeText, { color: t.colors.text, fontSize: 100 }]}
+                  >
+                    {countdown}
+                  </Animated.Text>
+                ) : (
+                  <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(300)} style={{ alignItems: 'center' }}>
+                    <Text style={[styles.timeText, { color: t.colors.text }]}>
+                      {formatTime(timeLeft)}
+                    </Text>
+                    <Text style={[styles.subTimeText, { color: t.colors.textMuted }]}>
+                      {formatTime(currentBlock.durationSeconds)}
+                    </Text>
+                  </Animated.View>
+                )}
+              </View>
             </Animated.View>
 
-            {state === 'paused' && (
-              <Animated.View 
-                entering={ZoomIn.duration(200)} 
-                exiting={ZoomOut.duration(200)}
-                style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}
-                pointerEvents="box-none"
-              >
-                <Pressable onPress={handleResume} style={[styles.hugePlayBtn, { backgroundColor: t.colors.text, overflow: 'hidden' }]}>
-                  <Animated.View style={[{
-                    position: 'absolute', top: 0, left: 0, right: 0, 
-                    backgroundColor: t.isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'
-                  }, fillAnimatedStyle]} />
-                  <Play size={48} color={t.colors.background} fill={t.colors.background} style={{ zIndex: 10 }} />
-                </Pressable>
-              </Animated.View>
-            )}
+            {/* Step info below ring */}
+            <View style={styles.stepInfoContainer}>
+              <Text style={[styles.stepText, { color: t.colors.textMuted }]}>Step {blockIdx + 1}</Text>
+              <Text style={[styles.blockNameText, { color: t.colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                {currentBlock.name || (isWork ? 'Work' : 'Rest')}
+              </Text>
+            </View>
           </View>
 
-          <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 40) }]}>
+          {/* Timeline ScrollView */}
+          <View style={styles.timelineContainer}>
+            <ScrollView 
+              ref={scrollRef}
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.timelineContent}
+            >
+              {blocks.map((b, i) => {
+                const isActive = i === blockIdx;
+                const isPast = i < blockIdx;
+                return (
+                  <View key={i} style={[
+                    styles.timelineItem, 
+                    isActive && [styles.timelineItemActive, { backgroundColor: t.colors.card }]
+                  ]}>
+                    <Text style={[
+                      styles.timelineName, 
+                      { color: isActive ? t.colors.text : (isPast ? t.colors.textMuted : t.colors.border) }
+                    ]}>
+                      {b.name || (b.type === 'work' ? 'Work' : 'Rest')}
+                    </Text>
+                    <Text style={[
+                      styles.timelineTime, 
+                      { color: isActive ? t.colors.textMuted : (isPast ? t.colors.textMuted : t.colors.border) }
+                    ]}>
+                      @ {formatTime(accumulatedTimes[i])}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 20) }]}>
             {state === 'idle' || state === 'countdown' ? (
-              <Pressable onPress={state === 'idle' ? handleStart : undefined} style={[styles.mainBtn, { backgroundColor: t.colors.text, opacity: state === 'countdown' ? 0.5 : 1 }]}>
-                <Text style={[styles.mainBtnText, { color: t.colors.background }]}>Start Workout</Text>
+              <Pressable onPress={state === 'idle' ? handleStart : undefined} style={[styles.startBtn, { backgroundColor: t.colors.text, opacity: state === 'countdown' ? 0.5 : 1 }]}>
+                <Text style={[styles.startBtnText, { color: t.colors.background }]}>Start Workout</Text>
               </Pressable>
-            ) : state === 'paused' ? null : (
-              <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.activeControls}>
-                <Pressable onPress={handlePause} style={[styles.controlBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                  <Pause size={32} color="#FFF" fill="#FFF" />
+            ) : (
+              <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.pillControls}>
+                <Pressable 
+                  onPress={state === 'paused' ? handleResume : handlePause} 
+                  style={[styles.pillBtn, { backgroundColor: 'rgba(255, 149, 0, 0.15)' }]}
+                >
+                  {state === 'paused' ? <Play size={24} color="#FF9500" fill="#FF9500" /> : <Pause size={24} color="#FF9500" fill="#FF9500" />}
+                  <Text style={[styles.pillBtnText, { color: '#FF9500' }]}>{state === 'paused' ? 'Resume' : 'Pause'}</Text>
                 </Pressable>
-                <Pressable onPress={handleSkip} style={[styles.controlBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                  <SkipForward size={32} color="#FFF" />
+                
+                <Pressable 
+                  onPress={handleSkip} 
+                  style={[styles.pillBtn, { backgroundColor: t.colors.text }]}
+                >
+                  <SkipForward size={24} color={t.colors.background} fill={t.colors.background} />
+                  <Text style={[styles.pillBtnText, { color: t.colors.background }]}>Next</Text>
                 </Pressable>
               </Animated.View>
             )}
@@ -356,8 +359,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  iconBtn: { padding: 8 },
-  workoutTitle: { fontSize: 18, fontWeight: '700', letterSpacing: 1 },
+  iconBtn: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+  },
+  workoutTitle: { fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
   timerWrapper: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -368,25 +377,72 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timeText: {
-    fontSize: 80,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-    letterSpacing: -2,
-  },
-  statusText: {
-    fontSize: 24,
+    fontSize: 72,
     fontWeight: '800',
-    letterSpacing: 2,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -1,
+  },
+  subTimeText: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  stepInfoContainer: {
+    alignItems: 'center',
+    marginTop: 32,
+    paddingHorizontal: 32,
+  },
+  stepText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  blockNameText: {
+    fontSize: 28,
+    fontWeight: '800',
     marginTop: 8,
-    opacity: 0.8,
+    textAlign: 'center',
+  },
+  timelineContainer: {
+    width: '100%',
+    height: 80,
+    marginBottom: 16,
+  },
+  timelineContent: {
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    gap: 16,
+  },
+  timelineItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+  },
+  timelineItemActive: {
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  timelineName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  timelineTime: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
   },
   controls: {
     width: '100%',
-    paddingHorizontal: 32,
-    minHeight: 120, // Prevents layout jump when hiding controls
+    paddingHorizontal: 24,
+    minHeight: 100, // Prevents layout jump when hiding controls
     justifyContent: 'flex-end',
   },
-  mainBtn: {
+  startBtn: {
     width: '100%',
     paddingVertical: 20,
     borderRadius: 9999,
@@ -395,30 +451,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 20,
   },
-  mainBtnText: { fontSize: 20, fontWeight: '800' },
-  activeControls: {
+  startBtnText: { fontSize: 20, fontWeight: '800' },
+  pillControls: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 24,
+    justifyContent: 'space-between',
+    gap: 16,
   },
-  controlBtn: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  pillBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
   },
-  hugePlayBtn: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingLeft: 8, // Optical centering for play icon
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
+  pillBtnText: {
+    fontSize: 18,
+    fontWeight: '700',
   },
   finishedView: {
     flex: 1,

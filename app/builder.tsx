@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import { Picker } from '@react-native-picker/picker';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { Play, Pause, Trash2, Copy, GripVertical, Check, Plus } from 'lucide-react-native';
+import { Play, Pause, Trash2, Copy, GripVertical, Check, Plus, Edit3 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -167,20 +167,6 @@ export default function BuilderScreen() {
   const renderFooter = () => {
     const canAddRest = blocks.length > 0;
     
-    if (!canAddRest) {
-      return (
-        <View style={styles.footerContainer}>
-          <Pressable 
-            onPress={() => openSheetForNew('work')} 
-            style={({ pressed }) => [styles.typeBtn, { backgroundColor: 'rgba(255, 59, 48, 0.15)' }, pressed && styles.pressed]}
-          >
-            <Play size={24} color="#FF3B30" fill="#FF3B30" />
-            <Text style={[styles.typeBtnText, { color: '#FF3B30' }]}>Work</Text>
-          </Pressable>
-        </View>
-      );
-    }
-
     return (
       <View style={styles.footerContainer}>
         <Pressable 
@@ -192,11 +178,12 @@ export default function BuilderScreen() {
         </Pressable>
         
         <Pressable 
-          onPress={() => openSheetForNew('rest')} 
+          onPress={() => canAddRest ? openSheetForNew('rest') : null} 
           style={({ pressed }) => [
             styles.typeBtn, 
             { backgroundColor: 'rgba(0, 122, 255, 0.15)' }, 
-            pressed && styles.pressed
+            !canAddRest && { opacity: 0.3 },
+            pressed && canAddRest && styles.pressed
           ]}
         >
           <Pause size={24} color="#007AFF" fill="#007AFF" />
@@ -217,18 +204,21 @@ export default function BuilderScreen() {
         <View style={[styles.dragIndicator, { backgroundColor: t.colors.border }]} />
       </View>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: t.colors.text }]}>{id ? 'Edit Workout' : 'Builder'}</Text>
+        <Text style={[styles.title, { color: t.colors.text }]}>{id ? 'Edit Workout' : 'New Workout'}</Text>
       </View>
 
       <View style={styles.inputContainer}>
-        <TextInput
-          style={[styles.input, { backgroundColor: t.colors.card, color: t.colors.text }]}
-          placeholder="Workout Name (e.g. Core Burn)"
-          placeholderTextColor={t.colors.textMuted}
-          value={name}
-          onChangeText={setName}
-          returnKeyType="done"
-        />
+        <View style={[{ flexDirection: 'row', alignItems: 'center', borderRadius: 16, backgroundColor: t.colors.card }]}>
+          <TextInput
+            style={[styles.input, { flex: 1, color: t.colors.text }]}
+            placeholder="Tap to name workout..."
+            placeholderTextColor={t.colors.textMuted}
+            value={name}
+            onChangeText={setName}
+            returnKeyType="done"
+          />
+          <Edit3 size={20} color={t.colors.textMuted} style={{ marginRight: 16 }} />
+        </View>
       </View>
 
       <DraggableFlatList
