@@ -43,6 +43,7 @@ export default function ActiveTimer() {
   
   const progress = useSharedValue(1);
   const svgOpacity = useSharedValue(1);
+  const resumeProgress = useSharedValue(0);
   const scrollRef = useRef<ScrollView>(null);
 
   // Sound players
@@ -157,7 +158,10 @@ export default function ActiveTimer() {
   const handleResume = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setState('resuming');
-    svgOpacity.value = withTiming(1, { duration: 1000 }, () => {
+    resumeProgress.value = 0;
+    const currentTarget = timeLeft / currentBlock.durationSeconds;
+    resumeProgress.value = withTiming(currentTarget, { duration: 1000 }, () => {
+      svgOpacity.value = 1;
       runOnJS(setState)('running');
     });
   };
@@ -187,13 +191,16 @@ export default function ActiveTimer() {
 
   const animatedCircleProps = useAnimatedProps(() => {
     return {
-      strokeDashoffset: CIRCUMFERENCE * (1 - progress.value)
+      strokeDashoffset: CIRCUMFERENCE * (1 - progress.value),
+      strokeOpacity: svgOpacity.value
     };
   });
 
-  const svgAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: svgOpacity.value
-  }));
+  const resumeCircleProps = useAnimatedProps(() => {
+    return {
+      strokeDashoffset: CIRCUMFERENCE * (1 - resumeProgress.value)
+    };
+  });
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -240,61 +247,82 @@ export default function ActiveTimer() {
           </View>
 
           <View style={{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', marginTop: -20 }}>
-            <View style={styles.timerWrapper}>
-              <Animated.View style={svgAnimatedStyle}>
-                <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
-                  <Circle
-                    cx={CIRCLE_SIZE / 2}
-                    cy={CIRCLE_SIZE / 2}
-                    r={RADIUS}
-                    stroke={trackColor}
-                    strokeWidth={STROKE_WIDTH}
-                    fill="transparent"
-                  />
-                  <AnimatedCircle
-                    cx={CIRCLE_SIZE / 2}
-                    cy={CIRCLE_SIZE / 2}
-                    r={RADIUS}
-                    stroke={themeColor}
-                    strokeWidth={STROKE_WIDTH}
-                    fill="transparent"
-                    strokeDasharray={CIRCUMFERENCE}
-                    strokeLinecap="round"
-                    animatedProps={animatedCircleProps}
-                    transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
-                  />
-                </Svg>
-              </Animated.View>
-              <View style={styles.timeDisplay}>
-                {state === 'countdown' ? (
-                  <Animated.Text 
-                    key={`cd-${countdown}`} 
-                    entering={ZoomIn.springify().damping(14).withInitialValues({ transform: [{ scale: 0.3 }] })} 
-                    exiting={ZoomOut.duration(150)}
-                    style={[styles.timeText, { color: t.colors.text, fontSize: 100 }]}
-                  >
-                    {countdown}
-                  </Animated.Text>
-                ) : (
-                  <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(300)} style={{ alignItems: 'center' }}>
-                    <Text style={[styles.timeText, { color: t.colors.text }]}>
-                      {formatTime(timeLeft)}
-                    </Text>
-                    <Text style={[styles.subTimeText, { color: t.colors.textMuted }]}>
-                      {formatTime(currentBlock.durationSeconds)}
-                    </Text>
-                  </Animated.View>
-                )}
+            <Animated.View 
+              key={`wrap-${blockIdx}`}
+              entering={FadeIn.duration(400)}
+              exiting={FadeOut.duration(400)}
+              style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}
+            >
+              <View style={styles.timerWrapper}>
+                <View>
+                  <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
+                    <Circle
+                      cx={CIRCLE_SIZE / 2}
+                      cy={CIRCLE_SIZE / 2}
+                      r={RADIUS}
+                      stroke={trackColor}
+                      strokeWidth={STROKE_WIDTH}
+                      fill="transparent"
+                    />
+                    <AnimatedCircle
+                      cx={CIRCLE_SIZE / 2}
+                      cy={CIRCLE_SIZE / 2}
+                      r={RADIUS}
+                      stroke={themeColor}
+                      strokeWidth={STROKE_WIDTH}
+                      fill="transparent"
+                      strokeDasharray={CIRCUMFERENCE}
+                      strokeLinecap="round"
+                      animatedProps={animatedCircleProps}
+                      transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
+                    />
+                    {state === 'resuming' && (
+                      <AnimatedCircle
+                        cx={CIRCLE_SIZE / 2}
+                        cy={CIRCLE_SIZE / 2}
+                        r={RADIUS}
+                        stroke={themeColor}
+                        strokeWidth={STROKE_WIDTH}
+                        fill="transparent"
+                        strokeDasharray={CIRCUMFERENCE}
+                        strokeLinecap="round"
+                        animatedProps={resumeCircleProps}
+                        transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
+                      />
+                    )}
+                  </Svg>
+                </View>
+                <View style={styles.timeDisplay}>
+                  {state === 'countdown' ? (
+                    <Animated.Text 
+                      key={`cd-${countdown}`} 
+                      entering={ZoomIn.springify().damping(14).withInitialValues({ transform: [{ scale: 0.3 }] })} 
+                      exiting={ZoomOut.duration(150)}
+                      style={[styles.timeText, { color: t.colors.text, fontSize: 100 }]}
+                    >
+                      {countdown}
+                    </Animated.Text>
+                  ) : (
+                    <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(300)} style={{ alignItems: 'center' }}>
+                      <Text style={[styles.timeText, { color: t.colors.text }]}>
+                        {formatTime(timeLeft)}
+                      </Text>
+                      <Text style={[styles.subTimeText, { color: t.colors.textMuted }]}>
+                        {formatTime(currentBlock.durationSeconds)}
+                      </Text>
+                    </Animated.View>
+                  )}
+                </View>
               </View>
-            </View>
 
-            {/* Step info below ring */}
-            <View style={styles.stepInfoContainer}>
-              <Text style={[styles.stepText, { color: t.colors.textMuted }]}>STEP {blockIdx + 1} / {blocks.length}</Text>
-              <Text style={[styles.blockNameText, { color: t.colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                {currentBlock.name || (isWork ? 'Work' : 'Rest')}
-              </Text>
-            </View>
+              {/* Step info below ring */}
+              <View style={styles.stepInfoContainer}>
+                <Text style={[styles.stepText, { color: t.colors.textMuted }]}>STEP {blockIdx + 1} / {blocks.length}</Text>
+                <Text style={[styles.blockNameText, { color: t.colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {currentBlock.name || (isWork ? 'Work' : 'Rest')}
+                </Text>
+              </View>
+            </Animated.View>
           </View>
 
           {/* Timeline ScrollView */}
