@@ -170,7 +170,7 @@ export default function Home() {
                         <View>
                           <Text style={[styles.workoutName, { color: t.colors.text }]}>{w.name}</Text>
                           <Text style={[styles.workoutSub, { color: t.colors.textMuted }]}>
-                            {w.blocks.length} blocks  •  {Math.max(1, Math.round(w.blocks.reduce((acc: any, b: any) => acc + (b.durationSeconds || 0), 0) / 60))} min
+                            {w.blocks.length} blocks {"\u2022"} {Math.max(1, Math.round(w.blocks.reduce((acc: any, b: any) => acc + (b.durationSeconds || 0), 0) / 60))} min
                           </Text>
                         </View>
                       </View>
@@ -318,3 +318,4 @@ const styles = StyleSheet.create({
     elevation: 5,
   }
 });
+
