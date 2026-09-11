@@ -11,7 +11,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, useAnimatedProps, withSpring, withTiming,
   interpolateColor, Extrapolation, interpolate
 } from 'react-native-reanimated';
-import { Play, Pause, X, SkipForward } from 'lucide-react-native';
+import { Play, Pause, X, SkipForward, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
@@ -34,7 +34,7 @@ export default function ActiveTimer() {
   
   const blocks = workout.blocks as IntervalBlock[];
 
-  const [state, setState] = useState<'idle' | 'countdown' | 'running' | 'paused' | 'finished'>('idle');
+  const [state, setState] = useState<'idle' | 'countdown' | 'running' | 'paused' | 'resuming' | 'finished'>('idle');
   const [blockIdx, setBlockIdx] = useState(0);
   const [countdown, setCountdown] = useState(3);
   
@@ -42,6 +42,7 @@ export default function ActiveTimer() {
   const [timeLeft, setTimeLeft] = useState(currentBlock.durationSeconds);
   
   const progress = useSharedValue(1);
+  const svgOpacity = useSharedValue(1);
   const scrollRef = useRef<ScrollView>(null);
 
   // Sound players
@@ -149,12 +150,20 @@ export default function ActiveTimer() {
 
   const handlePause = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    svgOpacity.value = withTiming(0.3, { duration: 300 });
     setState('paused');
   };
 
   const handleResume = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setState('running');
+    setState('resuming');
+    svgOpacity.value = withTiming(1, { duration: 300 });
+    const currentTarget = timeLeft / currentBlock.durationSeconds;
+    progress.value = withTiming(0, { duration: 0 }, () => {
+      progress.value = withTiming(currentTarget, { duration: 1000 }, () => {
+        runOnJS(setState)('running');
+      });
+    });
   };
 
   const handleSkip = () => {
@@ -166,7 +175,10 @@ export default function ActiveTimer() {
       setTimeLeft(blocks[nextIdx].durationSeconds);
       progress.value = 1;
       playSound(nextType);
-      if (state === 'paused') setState('running');
+      if (state === 'paused') {
+        svgOpacity.value = withTiming(1, { duration: 300 });
+        setState('running');
+      }
     } else {
       setState('finished');
       playSound('complete');
@@ -182,6 +194,10 @@ export default function ActiveTimer() {
       strokeDashoffset: CIRCUMFERENCE * (1 - progress.value)
     };
   });
+
+  const svgAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: svgOpacity.value
+  }));
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -206,10 +222,13 @@ export default function ActiveTimer() {
     <Animated.View entering={FadeIn.duration(400)} style={[styles.container, { backgroundColor: t.colors.background }]}>
       {state === 'finished' ? (
         <Animated.View entering={FadeIn.delay(300).springify()} style={[styles.finishedView, StyleSheet.absoluteFill]}>
-          <Text style={styles.finishedTitle}>Workout Complete!</Text>
-          <Text style={styles.finishedSub}>Great job crushing {workout.name}.</Text>
-          <Pressable onPress={handleClose} style={styles.finishedBtn}>
-            <Text style={[styles.finishedBtnText, { color: t.colors.success }]}>Back to Dashboard</Text>
+          <Animated.View entering={ZoomIn.delay(500).springify().damping(12)}>
+            <CheckCircle2 size={100} color={t.colors.success} />
+          </Animated.View>
+          <Text style={[styles.finishedTitle, { color: t.colors.text, marginTop: 24 }]}>Workout Complete!</Text>
+          <Text style={[styles.finishedSub, { color: t.colors.textMuted }]}>Great job crushing {workout.name}.</Text>
+          <Pressable onPress={handleClose} style={[styles.finishedBtn, { backgroundColor: t.colors.card }]}>
+            <ArrowLeft size={32} color={t.colors.text} />
           </Pressable>
         </Animated.View>
       ) : (
@@ -231,28 +250,30 @@ export default function ActiveTimer() {
               exiting={FadeOutLeft.duration(300)}
               style={styles.timerWrapper}
             >
-              <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
-                <Circle
-                  cx={CIRCLE_SIZE / 2}
-                  cy={CIRCLE_SIZE / 2}
-                  r={RADIUS}
-                  stroke={trackColor}
-                  strokeWidth={STROKE_WIDTH}
-                  fill="transparent"
-                />
-                <AnimatedCircle
-                  cx={CIRCLE_SIZE / 2}
-                  cy={CIRCLE_SIZE / 2}
-                  r={RADIUS}
-                  stroke={themeColor}
-                  strokeWidth={STROKE_WIDTH}
-                  fill="transparent"
-                  strokeDasharray={CIRCUMFERENCE}
-                  strokeLinecap="round"
-                  animatedProps={animatedCircleProps}
-                  transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
-                />
-              </Svg>
+              <Animated.View style={svgAnimatedStyle}>
+                <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
+                  <Circle
+                    cx={CIRCLE_SIZE / 2}
+                    cy={CIRCLE_SIZE / 2}
+                    r={RADIUS}
+                    stroke={trackColor}
+                    strokeWidth={STROKE_WIDTH}
+                    fill="transparent"
+                  />
+                  <AnimatedCircle
+                    cx={CIRCLE_SIZE / 2}
+                    cy={CIRCLE_SIZE / 2}
+                    r={RADIUS}
+                    stroke={themeColor}
+                    strokeWidth={STROKE_WIDTH}
+                    fill="transparent"
+                    strokeDasharray={CIRCUMFERENCE}
+                    strokeLinecap="round"
+                    animatedProps={animatedCircleProps}
+                    transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
+                  />
+                </Svg>
+              </Animated.View>
               <View style={styles.timeDisplay}>
                 {state === 'countdown' ? (
                   <Animated.Text 
@@ -278,7 +299,7 @@ export default function ActiveTimer() {
 
             {/* Step info below ring */}
             <View style={styles.stepInfoContainer}>
-              <Text style={[styles.stepText, { color: t.colors.textMuted }]}>Step {blockIdx + 1}</Text>
+              <Text style={[styles.stepText, { color: t.colors.textMuted }]}>STEP {blockIdx + 1} / {blocks.length}</Text>
               <Text style={[styles.blockNameText, { color: t.colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
                 {currentBlock.name || (isWork ? 'Work' : 'Rest')}
               </Text>
@@ -296,6 +317,7 @@ export default function ActiveTimer() {
               {blocks.map((b, i) => {
                 const isActive = i === blockIdx;
                 const isPast = i < blockIdx;
+                const isFuture = i > blockIdx;
                 return (
                   <View key={i} style={[
                     styles.timelineItem, 
@@ -303,13 +325,19 @@ export default function ActiveTimer() {
                   ]}>
                     <Text style={[
                       styles.timelineName, 
-                      { color: isActive ? t.colors.text : (isPast ? t.colors.textMuted : t.colors.border) }
+                      { 
+                        color: isActive ? t.colors.text : (isPast ? t.colors.textMuted : t.colors.text),
+                        opacity: isFuture ? 0.4 : 1
+                      }
                     ]}>
                       {b.name || (b.type === 'work' ? 'Work' : 'Rest')}
                     </Text>
                     <Text style={[
                       styles.timelineTime, 
-                      { color: isActive ? t.colors.textMuted : (isPast ? t.colors.textMuted : t.colors.border) }
+                      { 
+                        color: isActive ? t.colors.textMuted : (isPast ? t.colors.textMuted : t.colors.text),
+                        opacity: isFuture ? 0.3 : 1
+                      }
                     ]}>
                       @ {formatTime(accumulatedTimes[i])}
                     </Text>
@@ -328,15 +356,17 @@ export default function ActiveTimer() {
               <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.pillControls}>
                 <Pressable 
                   onPress={state === 'paused' ? handleResume : handlePause} 
-                  style={[styles.pillBtn, { backgroundColor: 'rgba(255, 149, 0, 0.15)' }]}
+                  style={[styles.pillBtn, { backgroundColor: 'rgba(255, 149, 0, 0.15)' }, state === 'resuming' && { opacity: 0.5 }]}
+                  disabled={state === 'resuming'}
                 >
-                  {state === 'paused' ? <Play size={24} color="#FF9500" fill="#FF9500" /> : <Pause size={24} color="#FF9500" fill="#FF9500" />}
-                  <Text style={[styles.pillBtnText, { color: '#FF9500' }]}>{state === 'paused' ? 'Resume' : 'Pause'}</Text>
+                  {state === 'paused' || state === 'resuming' ? <Play size={24} color="#FF9500" fill="#FF9500" /> : <Pause size={24} color="#FF9500" fill="#FF9500" />}
+                  <Text style={[styles.pillBtnText, { color: '#FF9500' }]}>{state === 'paused' || state === 'resuming' ? 'Resume' : 'Pause'}</Text>
                 </Pressable>
                 
                 <Pressable 
                   onPress={handleSkip} 
-                  style={[styles.pillBtn, { backgroundColor: t.colors.text }]}
+                  style={[styles.pillBtn, { backgroundColor: t.colors.text }, state === 'resuming' && { opacity: 0.5 }]}
+                  disabled={state === 'resuming'}
                 >
                   <SkipForward size={24} color={t.colors.background} fill={t.colors.background} />
                   <Text style={[styles.pillBtnText, { color: t.colors.background }]}>Next</Text>
@@ -487,17 +517,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   finishedBtn: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 40,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 10,
-  },
-  finishedBtnText: {
-    fontSize: 18,
-    fontWeight: '800',
+    shadowOffset: { width: 0, height: 4 },
   }
 });

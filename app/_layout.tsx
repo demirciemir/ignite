@@ -20,6 +20,10 @@ export default function RootLayout() {
             name="settings" 
             options={{ presentation: 'modal', gestureEnabled: true, gestureDirection: 'vertical' }} 
           />
+          <Stack.Screen 
+            name="streak" 
+            options={{ presentation: 'modal', gestureEnabled: true, gestureDirection: 'vertical' }} 
+          />
         </Stack>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>

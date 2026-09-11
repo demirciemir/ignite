@@ -3,15 +3,15 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
-import { StreakWidget } from '../src/components/StreakWidget';
 import { useStore } from '../src/store';
 import { useAppTheme } from '../src/theme';
-import { Play, Settings, Home as HomeIcon, Activity, Plus, Trash2, Edit2, Timer } from 'lucide-react-native';
+import { Play, Settings, Plus, Trash2, Edit2, Timer, Flame } from 'lucide-react-native';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Home() {
   const workouts = useStore((s) => s.workouts);
+  const streakDays = useStore((s) => s.streakDays);
   const removeWorkout = useStore((s) => s.removeWorkout);
   const insets = useSafeAreaInsets();
   const t = useAppTheme();
@@ -26,7 +26,6 @@ export default function Home() {
 
   const handleEdit = (id: string) => {
     handlePress();
-    // Assuming builder can take an ID param to edit
     router.push(`/builder?id=${id}`);
   };
 
@@ -57,23 +56,24 @@ export default function Home() {
               </View>
               <Text style={[styles.headerTitle, { color: t.colors.text }]}>Timer App</Text>
             </View>
-            <Pressable 
-              onPress={() => { handlePress(); router.push('/settings'); }} 
-              style={[styles.profileBtn, { backgroundColor: t.colors.card }]}
-            >
-              <Settings size={24} color={t.colors.text} />
-            </Pressable>
           </View>
-          
-          <StreakWidget />
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).springify()}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: t.colors.text }]}>Your Workouts</Text>
-            <Text style={[styles.countBadge, { backgroundColor: t.colors.border, color: t.colors.textMuted }]}>
-              {workouts.length}
-            </Text>
+          <View style={[styles.sectionHeader, { justifyContent: 'space-between' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[styles.sectionTitle, { color: t.colors.text }]}>Your Workouts</Text>
+              <Text style={[styles.countBadge, { backgroundColor: t.colors.border, color: t.colors.textMuted }]}>
+                {workouts.length}
+              </Text>
+            </View>
+            <Pressable 
+              onPress={() => { handlePress(); router.push('/streak'); }}
+              style={[styles.streakPill, { backgroundColor: t.colors.card }]}
+            >
+              <Flame size={16} color="#FF9500" fill="#FF9500" />
+              <Text style={[styles.streakText, { color: t.colors.text }]}>{streakDays}</Text>
+            </Pressable>
           </View>
           
           {workouts.length === 0 ? (
@@ -115,8 +115,7 @@ export default function Home() {
       {/* Fake Tab Bar */}
       <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: t.colors.background }]}>
         <View style={styles.tabItem}>
-          <HomeIcon size={24} color={t.colors.text} />
-          <Text style={[styles.tabLabel, { color: t.colors.text }]}>Home</Text>
+          {/* Left empty as requested */}
         </View>
         <Pressable 
           onPress={() => { handlePress(); router.push('/builder'); }} 
@@ -124,10 +123,13 @@ export default function Home() {
         >
           <Plus size={32} color={t.colors.background} />
         </Pressable>
-        <View style={styles.tabItem}>
-          <Activity size={24} color={t.colors.textMuted} />
-          <Text style={[styles.tabLabel, { color: t.colors.textMuted }]}>Stats</Text>
-        </View>
+        <Pressable 
+          onPress={() => { handlePress(); router.push('/settings'); }}
+          style={styles.tabItem}
+        >
+          <Settings size={24} color={t.colors.textMuted} />
+          <Text style={[styles.tabLabel, { color: t.colors.textMuted }]}>Settings</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -172,6 +174,18 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     fontWeight: '700',
+  },
+  streakPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  streakText: {
+    fontSize: 16,
+    fontWeight: '800',
   },
   empty: { alignItems: 'center', padding: 40, borderRadius: 24 },
   emptyText: { fontSize: 16, fontWeight: '500' },
