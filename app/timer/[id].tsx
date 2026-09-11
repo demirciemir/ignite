@@ -114,9 +114,6 @@ export default function ActiveTimer() {
   };
 
   const playTick = () => {
-    if (AppState.currentState === 'active') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-    }
     playSound('tick');
   };
   const playEnd = () => {
@@ -157,7 +154,7 @@ export default function ActiveTimer() {
                 });
             }
         }
-        accTime += blocks[i].durationSeconds;
+        accTime += blocks[i].durationSeconds + 1;
     }
   };
 
@@ -217,16 +214,19 @@ export default function ActiveTimer() {
     let tLeft = 0;
     let finished = false;
 
+    const totalRoutineDurationWithGaps = blocks.reduce((sum, b) => sum + b.durationSeconds + 1, 0);
+
     for (let i = 0; i < blocks.length; i++) {
-      if (currentTotalElapsed < acc + blocks[i].durationSeconds) {
+      const blockDurationWithGap = blocks[i].durationSeconds + 1;
+      if (currentTotalElapsed < acc + blockDurationWithGap) {
          bIdx = i;
-         tLeft = (acc + blocks[i].durationSeconds) - currentTotalElapsed;
+         tLeft = Math.max(0, (acc + blocks[i].durationSeconds) - currentTotalElapsed);
          break;
       }
-      acc += blocks[i].durationSeconds;
+      acc += blockDurationWithGap;
     }
 
-    if (currentTotalElapsed >= totalRoutineDuration) {
+    if (currentTotalElapsed >= totalRoutineDurationWithGaps) {
        finished = true;
        tLeft = 0;
     }
@@ -243,10 +243,13 @@ export default function ActiveTimer() {
        }
     } else {
         if (bIdx > prevBIdx) {
-            playSound(blocks[bIdx].type);
             progress.value = 1;
+            if (prevTLeft > 0) playSound(blocks[bIdx].type);
         } else if (tLeft !== prevTLeft) {
-            if (tLeft === 0 && bIdx === blocks.length - 1) playEnd(); // last block end
+            if (tLeft === 0) {
+                if (bIdx === blocks.length - 1) playEnd();
+                else playSound(blocks[bIdx + 1].type);
+            }
             else if (tLeft <= 3 && tLeft > 0) playTick();
         }
     }
@@ -272,7 +275,7 @@ export default function ActiveTimer() {
     let acc = 0;
     for (let b of blocks) {
       times.push(acc);
-      acc += b.durationSeconds;
+      acc += b.durationSeconds + 1;
     }
     return times;
   }, [blocks]);
@@ -419,8 +422,8 @@ export default function ActiveTimer() {
           <View style={{ flex: 1, justifyContent: 'center', width: '100%', alignItems: 'center' }}>
             <Animated.View 
               key={`block-${blockIdx}`}
-              entering={FadeIn.duration(400)} 
-              exiting={FadeOut.duration(400)}
+              entering={FadeInRight.duration(400)} 
+              exiting={FadeOutLeft.duration(400)}
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             >
@@ -467,8 +470,8 @@ export default function ActiveTimer() {
                   {state === 'countdown' ? (
                     <Animated.Text 
                       key={`cd-${countdown}`} 
-                      entering={ZoomIn.springify().damping(14).withInitialValues({ transform: [{ scale: 0.3 }] })} 
-                      exiting={ZoomOut.duration(150)}
+                      entering={FadeIn.duration(200)} 
+                      exiting={FadeOut.duration(200)}
                       style={[styles.timeText, { color: t.colors.text, fontSize: 100 }]}
                     >
                       {countdown}
