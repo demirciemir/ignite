@@ -126,15 +126,22 @@ export default function ActiveTimer() {
     playSound('go');
   };
 
-  const scheduleNotifications = async (startTotalElapsed: number) => {
+  const scheduleNotifications = async (startTotalElapsed: number, prepOffset: number = 0) => {
     await Notifications.cancelAllScheduledNotificationsAsync();
-    let accTime = 0;
     
+    if (prepOffset > 0 && startTotalElapsed === 0) {
+       await Notifications.scheduleNotificationAsync({
+          content: { title: `${blocks[0].type === 'work' ? 'Work' : 'Rest'} Time!`, body: blocks[0].name || `Session started`, sound: true },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(1, prepOffset) } as Notifications.NotificationTriggerInput
+       });
+    }
+
+    let accTime = 0;
     for (let i = 0; i < blocks.length; i++) {
         const blockEnd = accTime + blocks[i].durationSeconds;
         
         if (blockEnd > startTotalElapsed) {
-            const secondsUntilEnd = blockEnd - startTotalElapsed;
+            const secondsUntilEnd = prepOffset + (blockEnd - startTotalElapsed);
             
             if (i === blocks.length - 1) {
                 await Notifications.scheduleNotificationAsync({
@@ -175,7 +182,6 @@ export default function ActiveTimer() {
                
                const startTime = Date.now();
                setRunningStartTime(startTime);
-               scheduleNotifications(0);
                
                runOnJS(setState)('running');
             }
@@ -183,7 +189,7 @@ export default function ActiveTimer() {
       }, 100);
     }
     return () => clearInterval(interval);
-  }, [state, countdownStartTime, countdown]);
+  }, [state, countdownStartTime, prepTime]);
 
   // 2. Running absolute timer (updates currentTotalElapsed)
   useEffect(() => {
@@ -293,11 +299,12 @@ export default function ActiveTimer() {
        setCurrentTotalElapsed(0);
        const startTime = Date.now();
        setRunningStartTime(startTime);
-       scheduleNotifications(0);
+       scheduleNotifications(0, 0);
        setState('running');
     } else {
        setState('countdown');
        setCountdownStartTime(Date.now());
+       scheduleNotifications(0, prepTime);
        playTick();
     }
   };
@@ -417,8 +424,8 @@ export default function ActiveTimer() {
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             >
-              <View style={styles.timerWrapper}>
-                <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE, marginTop: 40 }}>
+              <View style={[styles.timerWrapper, { marginTop: 40 }]}>
+                <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}>
                   <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
                     <Circle
                       cx={CIRCLE_SIZE / 2}
@@ -540,10 +547,10 @@ export default function ActiveTimer() {
                 {state === 'idle' && (
                   <Pressable 
                     onPress={cyclePrepTime} 
-                    style={[styles.startBtn, { width: 90, backgroundColor: t.colors.card, flexDirection: 'row', gap: 6 }]}
+                    style={[styles.prepBtn, { backgroundColor: t.colors.card }]}
                   >
                     <Timer size={20} color={t.colors.text} />
-                    <Text style={[styles.startBtnText, { color: t.colors.text, fontSize: 16 }]}>{prepTime > 0 ? prepTime + 's' : 'Off'}</Text>
+                    <Text style={{ color: t.colors.text, fontSize: 16, fontWeight: '700' }}>{prepTime > 0 ? prepTime + 's' : 'Off'}</Text>
                   </Pressable>
                 )}
               </View>
@@ -672,11 +679,20 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderRadius: 9999,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 20,
   },
   startBtnText: { fontSize: 20, fontWeight: '800' },
+  prepBtn: {
+    width: 86,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
   pillControls: {
     flexDirection: 'row',
     justifyContent: 'space-between',
