@@ -82,16 +82,19 @@ export default function BuilderScreen() {
 
   const removeBlock = (blockId: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    setBlocks(blocks.filter(b => b.id !== blockId));
+    setBlocks(prev => prev.filter(b => b.id !== blockId));
   };
 
   const duplicateBlock = (block: IntervalBlock) => {
     handlePress();
-    const idx = blocks.findIndex(b => b.id === block.id);
-    const newBlock = { ...block, id: Math.random().toString(36).substring(7) };
-    const newBlocks = [...blocks];
-    newBlocks.splice(idx + 1, 0, newBlock);
-    setBlocks(newBlocks);
+    setBlocks(prev => {
+      const idx = prev.findIndex(b => b.id === block.id);
+      if (idx === -1) return prev;
+      const newBlock = { ...block, id: Math.random().toString(36).substring(2, 9) + Date.now() };
+      const newBlocks = [...prev];
+      newBlocks.splice(idx + 1, 0, newBlock);
+      return newBlocks;
+    });
   };
 
   const saveWorkout = () => {
@@ -127,12 +130,12 @@ export default function BuilderScreen() {
     
     return (
       <ScaleDecorator>
-        <Animated.View layout={Layout.springify()} style={[
+        <Animated.View style={[
           styles.rowCard, 
           { backgroundColor: t.colors.card },
           isActive && styles.rowCardActive
         ]}>
-          <Pressable onLongPress={drag} style={styles.dragHandle}>
+          <Pressable onPressIn={drag} delayLongPress={100} style={styles.dragHandle}>
             <GripVertical size={20} color={t.colors.textMuted} />
           </Pressable>
           
@@ -164,6 +167,20 @@ export default function BuilderScreen() {
   const renderFooter = () => {
     const canAddRest = blocks.length > 0;
     
+    if (!canAddRest) {
+      return (
+        <View style={styles.footerContainer}>
+          <Pressable 
+            onPress={() => openSheetForNew('work')} 
+            style={({ pressed }) => [styles.typeBtn, { backgroundColor: 'rgba(255, 59, 48, 0.15)' }, pressed && styles.pressed]}
+          >
+            <Play size={24} color="#FF3B30" fill="#FF3B30" />
+            <Text style={[styles.typeBtnText, { color: '#FF3B30' }]}>Work</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.footerContainer}>
         <Pressable 
@@ -175,12 +192,11 @@ export default function BuilderScreen() {
         </Pressable>
         
         <Pressable 
-          onPress={() => canAddRest ? openSheetForNew('rest') : null} 
+          onPress={() => openSheetForNew('rest')} 
           style={({ pressed }) => [
             styles.typeBtn, 
             { backgroundColor: 'rgba(0, 122, 255, 0.15)' }, 
-            !canAddRest && { opacity: 0.3 },
-            pressed && canAddRest && styles.pressed
+            pressed && styles.pressed
           ]}
         >
           <Pause size={24} color="#007AFF" fill="#007AFF" />
