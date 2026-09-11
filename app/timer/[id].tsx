@@ -17,10 +17,10 @@ import Svg, { Circle } from 'react-native-svg';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
+    shouldShowAlert: false,
+    shouldShowBanner: false,
+    shouldShowList: false,
+    shouldPlaySound: false,
     shouldSetBadge: false,
   }),
 });
