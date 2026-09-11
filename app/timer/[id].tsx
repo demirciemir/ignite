@@ -313,18 +313,23 @@ export default function ActiveTimer() {
     setState('paused');
   };
 
+  const finishResume = (elapsedToUse: number) => {
+    setRunningStartTime(Date.now());
+    scheduleNotifications(elapsedToUse);
+    setState('running');
+  };
+
   const handleResume = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setState('resuming');
     resumeProgress.value = 0;
     const currentTarget = timeLeft / currentBlock.durationSeconds;
-    resumeProgress.value = withTiming(currentTarget, { duration: 1000 }, () => {
-      svgOpacity.value = 1;
-      runOnJS(() => {
-        setRunningStartTime(Date.now());
-        scheduleNotifications(baseTotalElapsed);
-        setState('running');
-      })();
+    const elapsedSnapshot = baseTotalElapsed;
+    resumeProgress.value = withTiming(currentTarget, { duration: 1000 }, (isFinished) => {
+      if (isFinished) {
+        svgOpacity.value = 1;
+        runOnJS(finishResume)(elapsedSnapshot);
+      }
     });
   };
 
