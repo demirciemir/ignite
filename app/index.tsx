@@ -11,10 +11,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Home() {
   const workouts = useStore((s) => s.workouts);
-  const streakDays = useStore((s) => s.streakDays);
+  const { streakDays, lastWorkoutDate } = useStore();
   const removeWorkout = useStore((s) => s.removeWorkout);
   const insets = useSafeAreaInsets();
   const t = useAppTheme();
+
+  const today = new Date().toLocaleDateString('en-CA');
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toLocaleDateString('en-CA');
+
+  let displayStreak = streakDays;
+  if (lastWorkoutDate && lastWorkoutDate !== today && lastWorkoutDate !== yesterdayStr) {
+    displayStreak = 0;
+  }
   const router = useRouter();
 
   const handlePress = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -72,7 +82,7 @@ export default function Home() {
               style={[styles.streakPill, { backgroundColor: t.colors.card }]}
             >
               <Flame size={16} color="#FF9500" fill="#FF9500" />
-              <Text style={[styles.streakText, { color: t.colors.text }]}>{streakDays}</Text>
+              <Text style={[styles.streakText, { color: t.colors.text }]}>{displayStreak}</Text>
             </Pressable>
           </View>
           

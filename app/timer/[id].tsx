@@ -29,6 +29,7 @@ export default function ActiveTimer() {
   const insets = useSafeAreaInsets();
   
   const workout = useStore((s) => s.workouts.find((w) => w.id === id));
+  const logWorkout = useStore((s) => s.logWorkout);
   
   if (!workout) return <Redirect href="/" />;
   
@@ -101,6 +102,8 @@ export default function ActiveTimer() {
           playSound(nextType);
         } else {
           setState('finished');
+          const totalDuration = blocks.reduce((acc, b) => acc + b.durationSeconds, 0);
+          logWorkout(totalDuration);
           playSound('complete');
         }
       }, 1200);
@@ -181,6 +184,8 @@ export default function ActiveTimer() {
       }
     } else {
       setState('finished');
+      const totalDuration = blocks.reduce((acc, b) => acc + b.durationSeconds, 0);
+      logWorkout(totalDuration);
       playSound('complete');
     }
   };

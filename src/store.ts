@@ -29,13 +29,16 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 export interface AppState {
   workouts: Workout[];
   streakDays: number;
+  lastWorkoutDate: string | null;
   workoutDates: string[];
   lastRestoreDate: string | null;
+  totalWorkoutsLogged: number;
+  totalMinutesLogged: number;
   themePreference: ThemePreference;
   addWorkout: (workout: Workout) => void;
   removeWorkout: (id: string) => void;
   updateWorkout: (id: string, workout: Workout) => void;
-  logWorkout: () => void;
+  logWorkout: (durationSeconds: number) => void;
   restoreStreak: () => void;
   setThemePreference: (pref: ThemePreference) => void;
 }
@@ -45,36 +48,64 @@ export const useStore = create<AppState>()(
     (set, get) => ({
       workouts: [],
       streakDays: 0,
+      lastWorkoutDate: null,
       workoutDates: [],
       lastRestoreDate: null,
+      totalWorkoutsLogged: 0,
+      totalMinutesLogged: 0,
       themePreference: 'system',
       addWorkout: (workout) => set((state) => ({ workouts: [...state.workouts, workout] })),
       removeWorkout: (id) => set((state) => ({ workouts: state.workouts.filter(w => w.id !== id) })),
       updateWorkout: (id, workout) => set((state) => ({ 
         workouts: state.workouts.map(w => w.id === id ? workout : w) 
       })),
-      logWorkout: () => {
-        const today = new Date().toISOString().split('T')[0];
+      logWorkout: (durationSeconds) => {
+        const today = new Date().toLocaleDateString('en-CA');
+        
         set((state) => {
-          if (state.workoutDates.includes(today)) return state;
+          const newWorkouts = state.totalWorkoutsLogged + 1;
+          const newMinutes = state.totalMinutesLogged + Math.round(durationSeconds / 60);
+
+          if (state.lastWorkoutDate === today) {
+            return { totalWorkoutsLogged: newWorkouts, totalMinutesLogged: newMinutes };
+          }
           
           const newDates = [...state.workoutDates, today];
-          // Simple streak logic: if yesterday was logged, increment. If not, reset to 1.
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
-          const yesterdayStr = yesterday.toISOString().split('T')[0];
+          const yesterdayStr = yesterday.toLocaleDateString('en-CA');
           
-          let newStreak = 1;
-          if (state.workoutDates.includes(yesterdayStr)) {
-            newStreak = state.streakDays + 1;
+          let newStreak = state.streakDays;
+          if (state.lastWorkoutDate === yesterdayStr) {
+            newStreak += 1;
+          } else {
+            newStreak = 1;
           }
-          return { workoutDates: newDates, streakDays: newStreak };
+          
+          return { 
+            workoutDates: newDates, 
+            lastWorkoutDate: today,
+            streakDays: newStreak,
+            totalWorkoutsLogged: newWorkouts,
+            totalMinutesLogged: newMinutes
+          };
         });
       },
       restoreStreak: () => {
         set((state) => {
-          const today = new Date().toISOString().split('T')[0];
-          return { streakDays: state.streakDays + 1, lastRestoreDate: today };
+          const today = new Date().toLocaleDateString('en-CA');
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toLocaleDateString('en-CA');
+          
+          if (!state.workoutDates.includes(yesterdayStr)) {
+            return { 
+              workoutDates: [...state.workoutDates, yesterdayStr],
+              lastWorkoutDate: yesterdayStr,
+              lastRestoreDate: today
+            };
+          }
+          return state;
         });
       },
       setThemePreference: (pref) => set({ themePreference: pref }),
