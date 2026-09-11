@@ -17,7 +17,9 @@ import Svg, { Circle } from 'react-native-svg';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true, shouldShowBanner: true, shouldShowList: true,
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -43,19 +45,29 @@ export default function ActiveTimer() {
   if (!workout) return <Redirect href="/" />;
   
   const blocks = workout.blocks as IntervalBlock[];
+  const totalRoutineDuration = useMemo(() => blocks.reduce((acc, b) => acc + b.durationSeconds, 0), [blocks]);
 
+  // Absolute Time State
   const [state, setState] = useState<'idle' | 'countdown' | 'running' | 'paused' | 'resuming' | 'finished'>('idle');
+  const [countdownStartTime, setCountdownStartTime] = useState<number | null>(null);
+  const [runningStartTime, setRunningStartTime] = useState<number | null>(null);
+  const [baseTotalElapsed, setBaseTotalElapsed] = useState(0);
+  const [currentTotalElapsed, setCurrentTotalElapsed] = useState(0);
+
+  // Derived UI State
   const [blockIdx, setBlockIdx] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(blocks[0].durationSeconds);
   const [countdown, setCountdown] = useState(3);
   
   const currentBlock = blocks[blockIdx] || blocks[0];
-  const [timeLeft, setTimeLeft] = useState(currentBlock.durationSeconds);
-  const [endTime, setEndTime] = useState<number | null>(null);
   
   const progress = useSharedValue(1);
   const svgOpacity = useSharedValue(1);
   const resumeProgress = useSharedValue(0);
   const scrollRef = useRef<ScrollView>(null);
+  
+  const prevBlockIdxRef = useRef(0);
+  const prevTimeLeftRef = useRef(blocks[0].durationSeconds);
 
   // Sound players
   const workSound = useAudioPlayer(require('../../assets/sounds/work.wav'));
@@ -87,112 +99,149 @@ export default function ActiveTimer() {
   };
 
   const playTick = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+    if (AppState.currentState === 'active') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+    }
     playSound('tick');
   };
   const playEnd = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (AppState.currentState === 'active') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     playSound('go');
   };
 
-  const scheduleNotifications = async (currentLeft: number, currentIdx: number) => {
+  const scheduleNotifications = async (startTotalElapsed: number) => {
     await Notifications.cancelAllScheduledNotificationsAsync();
-    let accTime = currentLeft;
-    for (let i = currentIdx; i < blocks.length; i++) {
-        if (i === blocks.length - 1) {
-            await Notifications.scheduleNotificationAsync({
-                content: { title: "Session Complete!", body: `Great job completing ${workout.name}!`, sound: true },
-                trigger: { 
-                    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, 
-                    seconds: Math.max(1, accTime)
-                } as Notifications.NotificationTriggerInput
-            });
-        } else {
-            const nextBlock = blocks[i + 1];
-            const typeStr = nextBlock.type === 'work' ? 'Work' : 'Rest';
-            await Notifications.scheduleNotificationAsync({
-                content: { title: `${typeStr} Time!`, body: nextBlock.name || `Next block started`, sound: true },
-                trigger: { 
-                    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, 
-                    seconds: Math.max(1, accTime)
-                } as Notifications.NotificationTriggerInput
-            });
+    let accTime = 0;
+    
+    for (let i = 0; i < blocks.length; i++) {
+        const blockEnd = accTime + blocks[i].durationSeconds;
+        
+        if (blockEnd > startTotalElapsed) {
+            const secondsUntilEnd = blockEnd - startTotalElapsed;
+            
+            if (i === blocks.length - 1) {
+                await Notifications.scheduleNotificationAsync({
+                    content: { title: "Session Complete!", body: `Great job completing ${workout.name}!`, sound: true },
+                    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(1, secondsUntilEnd) } as Notifications.NotificationTriggerInput
+                });
+            } else {
+                const nextBlock = blocks[i + 1];
+                const typeStr = nextBlock.type === 'work' ? 'Work' : 'Rest';
+                await Notifications.scheduleNotificationAsync({
+                    content: { title: `${typeStr} Time!`, body: nextBlock.name || `Next block started`, sound: true },
+                    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(1, secondsUntilEnd) } as Notifications.NotificationTriggerInput
+                });
+            }
         }
-        if (i < blocks.length - 1) {
-            accTime += blocks[i + 1].durationSeconds;
-        }
+        accTime += blocks[i].durationSeconds;
     }
   };
 
-  // Robust timer logic that survives backgrounding!
+  // 1. Countdown absolute timer
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
-    if (state === 'running' && endTime) {
+    if (state === 'countdown' && countdownStartTime) {
+      interval = setInterval(() => {
+         const now = Date.now();
+         const elapsed = Math.floor((now - countdownStartTime) / 1000);
+         const remaining = 3 - elapsed;
+         
+         if (remaining !== countdown) {
+            if (remaining > 0) {
+               setCountdown(remaining);
+               playTick();
+            } else {
+               clearInterval(interval);
+               playSound(blocks[0].type);
+               setBaseTotalElapsed(0);
+               setCurrentTotalElapsed(0);
+               
+               const startTime = Date.now();
+               setRunningStartTime(startTime);
+               scheduleNotifications(0);
+               
+               runOnJS(setState)('running');
+            }
+         }
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [state, countdownStartTime, countdown]);
+
+  // 2. Running absolute timer (updates currentTotalElapsed)
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (state === 'running' && runningStartTime) {
       interval = setInterval(() => {
         const now = Date.now();
-        const diff = Math.max(0, Math.ceil((endTime - now) / 1000));
+        const elapsedSinceResume = Math.floor((now - runningStartTime) / 1000);
+        const newTotal = baseTotalElapsed + elapsedSinceResume;
         
-        setTimeLeft((prev) => {
-          if (prev !== diff) {
-            if (diff === 0) playEnd();
-            else if (diff <= 3 && diff > 0 && diff === prev - 1) playTick();
-          }
-          return diff;
-        });
-      }, 200);
-    }
-    return () => clearInterval(interval);
-  }, [state, endTime]);
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (state === 'countdown') {
-      interval = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            playSound(blocks[0].type);
-            setEndTime(Date.now() + timeLeft * 1000);
-            scheduleNotifications(timeLeft, blockIdx);
-            runOnJS(setState)('running');
-            return 0;
-          }
-          playTick();
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [state, timeLeft, blockIdx, blocks]);
-
-  useEffect(() => {
-    if (state === 'running' && timeLeft === 0) {
-      const timerId = setTimeout(() => {
-        if (blockIdx < blocks.length - 1) {
-          const nextIdx = blockIdx + 1;
-          const nextType = blocks[nextIdx].type;
-          const nextLeft = blocks[nextIdx].durationSeconds;
-          
-          setBlockIdx(nextIdx);
-          setTimeLeft(nextLeft);
-          setEndTime(Date.now() + nextLeft * 1000);
-          progress.value = 1;
-          playSound(nextType);
-        } else {
-          setState('finished');
-          const totalDuration = blocks.reduce((acc, b) => acc + b.durationSeconds, 0);
-          logWorkout(totalDuration);
-          playSound('complete');
+        if (newTotal !== currentTotalElapsed) {
+           setCurrentTotalElapsed(newTotal);
         }
-      }, 1000);
-      return () => clearTimeout(timerId);
+      }, 100);
     }
-  }, [timeLeft, state, blockIdx, blocks]);
+    return () => clearInterval(interval);
+  }, [state, runningStartTime, baseTotalElapsed, currentTotalElapsed]);
 
+  // 3. Sync UI with currentTotalElapsed
+  useEffect(() => {
+    if (state !== 'running' && state !== 'idle') return;
+    
+    let acc = 0;
+    let bIdx = blocks.length - 1;
+    let tLeft = 0;
+    let finished = false;
+
+    for (let i = 0; i < blocks.length; i++) {
+      if (currentTotalElapsed < acc + blocks[i].durationSeconds) {
+         bIdx = i;
+         tLeft = (acc + blocks[i].durationSeconds) - currentTotalElapsed;
+         break;
+      }
+      acc += blocks[i].durationSeconds;
+    }
+
+    if (currentTotalElapsed >= totalRoutineDuration) {
+       finished = true;
+       tLeft = 0;
+    }
+
+    const prevBIdx = prevBlockIdxRef.current;
+    const prevTLeft = prevTimeLeftRef.current;
+
+    if (finished) {
+       if (true) {
+          Notifications.cancelAllScheduledNotificationsAsync();
+          setState('finished');
+          logWorkout(totalRoutineDuration);
+          playSound('complete');
+       }
+    } else {
+        if (bIdx > prevBIdx) {
+            playSound(blocks[bIdx].type);
+            progress.value = 1;
+        } else if (tLeft !== prevTLeft) {
+            if (tLeft === 0 && bIdx === blocks.length - 1) playEnd(); // last block end
+            else if (tLeft <= 3 && tLeft > 0) playTick();
+        }
+    }
+
+    prevBlockIdxRef.current = bIdx;
+    prevTimeLeftRef.current = tLeft;
+    setBlockIdx(bIdx);
+    setTimeLeft(tLeft);
+    
+  }, [currentTotalElapsed, state, blocks, totalRoutineDuration]);
+
+  // Sync circular progress animation
   useEffect(() => {
     if (state === 'idle') {
       progress.value = 1;
-    } else {
+    } else if (state === 'running') {
       progress.value = withTiming(timeLeft / currentBlock.durationSeconds, { duration: 1000, easing: Easing.linear });
     }
   }, [timeLeft, currentBlock.durationSeconds, state]);
@@ -224,6 +273,7 @@ export default function ActiveTimer() {
   const handleStart = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setState('countdown');
+    setCountdownStartTime(Date.now());
     playTick();
   };
 
@@ -231,7 +281,10 @@ export default function ActiveTimer() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     svgOpacity.value = withTiming(0.3, { duration: 300 });
     Notifications.cancelAllScheduledNotificationsAsync();
-    setEndTime(null);
+    
+    // Save where we paused
+    setBaseTotalElapsed(currentTotalElapsed);
+    setRunningStartTime(null);
     setState('paused');
   };
 
@@ -243,8 +296,8 @@ export default function ActiveTimer() {
     resumeProgress.value = withTiming(currentTarget, { duration: 1000 }, () => {
       svgOpacity.value = 1;
       runOnJS(() => {
-        setEndTime(Date.now() + timeLeft * 1000);
-        scheduleNotifications(timeLeft, blockIdx);
+        setRunningStartTime(Date.now());
+        scheduleNotifications(baseTotalElapsed);
         setState('running');
       })();
     });
@@ -255,27 +308,27 @@ export default function ActiveTimer() {
     if (blockIdx < blocks.length - 1) {
       const nextIdx = blockIdx + 1;
       const nextType = blocks[nextIdx].type;
-      const nextLeft = blocks[nextIdx].durationSeconds;
       
-      setBlockIdx(nextIdx);
-      setTimeLeft(nextLeft);
-      progress.value = 1;
-      playSound(nextType);
+      // Calculate new elapsed time to jump directly to the start of the next block
+      const newElapsed = accumulatedTimes[nextIdx];
       
       if (state === 'running') {
-        setEndTime(Date.now() + nextLeft * 1000);
-        scheduleNotifications(nextLeft, nextIdx);
+          setBaseTotalElapsed(newElapsed);
+          setRunningStartTime(Date.now());
+          setCurrentTotalElapsed(newElapsed);
+          scheduleNotifications(newElapsed);
       } else if (state === 'paused') {
-        svgOpacity.value = withTiming(1, { duration: 300 });
-        setEndTime(Date.now() + nextLeft * 1000);
-        scheduleNotifications(nextLeft, nextIdx);
-        setState('running');
+          svgOpacity.value = withTiming(1, { duration: 300 });
+          setBaseTotalElapsed(newElapsed);
+          setRunningStartTime(Date.now());
+          setCurrentTotalElapsed(newElapsed);
+          scheduleNotifications(newElapsed);
+          setState('running');
       }
     } else {
       Notifications.cancelAllScheduledNotificationsAsync();
       setState('finished');
-      const totalDuration = blocks.reduce((acc, b) => acc + b.durationSeconds, 0);
-      logWorkout(totalDuration);
+      logWorkout(totalRoutineDuration);
       playSound('complete');
     }
   };
