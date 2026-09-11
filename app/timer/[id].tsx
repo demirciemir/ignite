@@ -157,12 +157,8 @@ export default function ActiveTimer() {
   const handleResume = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setState('resuming');
-    svgOpacity.value = withTiming(1, { duration: 300 });
-    const currentTarget = timeLeft / currentBlock.durationSeconds;
-    progress.value = withTiming(0, { duration: 0 }, () => {
-      progress.value = withTiming(currentTarget, { duration: 1000 }, () => {
-        runOnJS(setState)('running');
-      });
+    svgOpacity.value = withTiming(1, { duration: 1000 }, () => {
+      runOnJS(setState)('running');
     });
   };
 
@@ -221,8 +217,8 @@ export default function ActiveTimer() {
   return (
     <Animated.View entering={FadeIn.duration(400)} style={[styles.container, { backgroundColor: t.colors.background }]}>
       {state === 'finished' ? (
-        <Animated.View entering={FadeIn.delay(300).springify()} style={[styles.finishedView, StyleSheet.absoluteFill]}>
-          <Animated.View entering={ZoomIn.delay(500).springify().damping(12)}>
+        <Animated.View entering={FadeIn.delay(300).duration(400)} style={[styles.finishedView, StyleSheet.absoluteFill]}>
+          <Animated.View entering={FadeIn.delay(500).duration(500)}>
             <CheckCircle2 size={100} color={t.colors.success} />
           </Animated.View>
           <Text style={[styles.finishedTitle, { color: t.colors.text, marginTop: 24 }]}>Workout Complete!</Text>
@@ -244,12 +240,7 @@ export default function ActiveTimer() {
           </View>
 
           <View style={{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', marginTop: -20 }}>
-            <Animated.View 
-              key={blockIdx}
-              entering={FadeInRight.duration(300)}
-              exiting={FadeOutLeft.duration(300)}
-              style={styles.timerWrapper}
-            >
+            <View style={styles.timerWrapper}>
               <Animated.View style={svgAnimatedStyle}>
                 <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
                   <Circle
@@ -295,7 +286,7 @@ export default function ActiveTimer() {
                   </Animated.View>
                 )}
               </View>
-            </Animated.View>
+            </View>
 
             {/* Step info below ring */}
             <View style={styles.stepInfoContainer}>
