@@ -170,7 +170,6 @@ export default function ActiveTimer() {
          if (remaining !== countdown) {
             if (remaining > 0) {
                setCountdown(remaining);
-               playTick();
             } else {
                clearInterval(interval);
                playSound(blocks[0].type);
@@ -308,7 +307,6 @@ export default function ActiveTimer() {
        setState('countdown');
        setCountdownStartTime(Date.now());
        scheduleNotifications(0, prepTime);
-       playTick();
     }
   };
 
@@ -422,8 +420,8 @@ export default function ActiveTimer() {
           <View style={{ flex: 1, justifyContent: 'center', width: '100%', alignItems: 'center' }}>
             <Animated.View 
               key={`block-${blockIdx}`}
-              entering={FadeInRight.duration(400)} 
-              exiting={FadeOutLeft.duration(400)}
+              entering={FadeIn.duration(400)} 
+              exiting={FadeOut.duration(400)}
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             >
