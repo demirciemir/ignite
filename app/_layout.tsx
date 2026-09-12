@@ -2,11 +2,14 @@ import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
+import { useAppTheme } from '../src/theme';
+
 export default function RootLayout() {
+  const t = useAppTheme();
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.colors.background }}>
       <BottomSheetModalProvider>
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F2F2F7' } }}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.colors.background } }}>
           <Stack.Screen name="index" />
           <Stack.Screen 
             name="builder" 
