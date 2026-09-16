@@ -50,19 +50,25 @@ export default function Home() {
         setDisplayStreak(currentComputed - 1);
         setShowAnimation(true);
         
-        // Use requestAnimationFrame to let the UI render first
+        // Use requestAnimationFrame to let the UI render first, and a small timeout 
+        // to wait for the screen transition to finish so measure() returns accurate absolute coordinates.
         requestAnimationFrame(() => {
-          if (flameRef.current) {
-            flameRef.current.measure((x, y, w, h, px, py) => {
-              const targetX = px - 42; // Center 100x100 exactly over 16x16
-              const targetY = py - 42;
-              const centerX = width / 2 - 50;
-              const centerY = height / 2 - 50;
+          setTimeout(() => {
+            if (flameRef.current) {
+              flameRef.current.measure((x, y, w, h, px, py) => {
+                // Fallback to approximate if measure fails (0,0)
+                const realX = px === 0 ? width - 75 : px - 42;
+                const realY = py === 0 ? insets.top + 108 : py - 42;
 
-              flameX.value = targetX;
-              flameY.value = targetY;
-              flameScale.value = 0.16;
-              flameOpacity.value = 1;
+                const targetX = realX; 
+                const targetY = realY;
+                const centerX = width / 2 - 50;
+                const centerY = height / 2 - 50;
+
+                flameX.value = targetX;
+                flameY.value = targetY;
+                flameScale.value = 0.16;
+                flameOpacity.value = 1;
 
               setTimeout(() => {
                 flameX.value = withTiming(centerX, { duration: 600, easing: Easing.out(Easing.back(1.5)) });
@@ -85,10 +91,11 @@ export default function Home() {
               }, 100);
             });
           }
-        });
-      } else {
-        setDisplayStreak(currentComputed);
-      }
+        }, 300); // 300ms wait to ensure transition finishes before measuring
+      });
+    } else {
+      setDisplayStreak(currentComputed);
+    }
     }, [justEarnedStreak, streakDays, lastWorkoutDate])
   );
 

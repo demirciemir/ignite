@@ -62,7 +62,7 @@ export default function Settings() {
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             useStore.setState({ justEarnedStreak: true });
-            router.push('/');
+            router.back();
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
