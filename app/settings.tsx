@@ -85,6 +85,11 @@ export default function Settings() {
           </View>
         </Pressable>
       </View>
+
+      <View style={styles.footer}>
+        <Text style={[styles.footerText, { color: t.colors.textMuted }]}>Designed by Emir Demirci</Text>
+        <Text style={[styles.footerVersion, { color: t.colors.textMuted }]}>Version 1.0.0</Text>
+      </View>
     </View>
   );
 }
@@ -120,4 +125,19 @@ const styles = StyleSheet.create({
   },
   optionIcon: { marginRight: 12 },
   optionText: { fontSize: 16, fontWeight: '500' },
+  footer: {
+    marginTop: 48,
+    alignItems: 'center',
+    gap: 4,
+  },
+  footerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.7,
+  },
+  footerVersion: {
+    fontSize: 10,
+    fontWeight: '400',
+    opacity: 0.5,
+  }
 });
