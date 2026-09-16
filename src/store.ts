@@ -31,6 +31,7 @@ export interface AppState {
   streakDays: number;
   lastWorkoutDate: string | null;
   workoutDates: string[];
+  restoredDates: string[];
   lastRestoreDate: string | null;
   totalWorkoutsLogged: number;
   totalMinutesLogged: number;
@@ -54,6 +55,7 @@ export const useStore = create<AppState>()(
       streakDays: 0,
       lastWorkoutDate: null,
       workoutDates: [],
+        restoredDates: [],
       lastRestoreDate: null,
       totalWorkoutsLogged: 0,
       totalMinutesLogged: 0,

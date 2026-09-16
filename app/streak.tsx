@@ -1,35 +1,41 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../src/store';
 import { useAppTheme } from '../src/theme';
-import { Flame, Check, RefreshCw, X } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { Flame, Check, RefreshCw, X, Snowflake, ChevronDown, ChevronUp } from 'lucide-react-native';
+
+interface CalendarDay {
+  id: string;
+  name: string;
+  date: number;
+  isLogged: boolean;
+  isRestored: boolean;
+  prevIsLogged: boolean;
+  nextIsLogged: boolean;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+}
 
 export default function StreakModal() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const t = useAppTheme();
+  
   const { 
     streakDays, 
+    lastWorkoutDate, 
     workoutDates, 
-    lastRestoreDate, 
-    lastWorkoutDate,
-    totalWorkoutsLogged, 
-    totalMinutesLogged, 
-    restoreStreak 
+    restoredDates = [], 
+    lastRestoreDate,
+    totalWorkoutsLogged,
+    totalMinutesLogged,
+    restoreStreak
   } = useStore();
 
-  const handleClose = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  };
+  const [expanded, setExpanded] = useState(false);
 
-  const handleRestore = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    restoreStreak();
-  };
-
-  // Determine actual display streak
   const today = new Date().toLocaleDateString('en-CA');
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -37,8 +43,14 @@ export default function StreakModal() {
 
   let displayStreak = streakDays;
   if (!lastWorkoutDate || (lastWorkoutDate !== today && lastWorkoutDate !== yesterdayStr)) {
-    displayStreak = 0; // It's broken!
+    displayStreak = 0;
   }
+
+  const handleClose = () => router.back();
+
+  const handleRestore = () => {
+    restoreStreak();
+  };
 
   const isStreakActive = displayStreak > 0;
 
@@ -46,25 +58,91 @@ export default function StreakModal() {
   const canRestore = displayStreak === 0 && streakDays > 0 && 
     (!lastRestoreDate || (new Date().getTime() - new Date(lastRestoreDate).getTime() > 7 * 24 * 60 * 60 * 1000));
 
-  // Calendar logic (last 7 days, ending today)
-  const calendarDays = useMemo(() => {
-    const days = [];
-    const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  // Calendar logic
+  const calendarWeeks = useMemo(() => {
+    const dayNames = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
     
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toLocaleDateString('en-CA');
-      const dayName = dayNames[d.getDay()];
-      const isLogged = workoutDates.includes(dateStr);
-      days.push({ id: i, name: dayName, date: d.getDate(), isLogged });
+    // Determine the range of dates to show
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let startDate = new Date(today);
+    let endDate = new Date(today);
+
+    if (expanded) {
+      // Show full current month
+      startDate.setDate(1);
+      endDate.setMonth(endDate.getMonth() + 1);
+      endDate.setDate(0); // last day of month
     }
-    return days;
-  }, [workoutDates]);
+
+    // Adjust startDate to the previous Monday
+    const startDay = startDate.getDay(); // 0 = Sun, 1 = Mon...
+    const startOffset = startDay === 0 ? 6 : startDay - 1;
+    startDate.setDate(startDate.getDate() - startOffset);
+
+    // Adjust endDate to the next Sunday
+    const endDay = endDate.getDay();
+    const endOffset = endDay === 0 ? 0 : 7 - endDay;
+    endDate.setDate(endDate.getDate() + endOffset);
+
+    const weeks: CalendarDay[][] = [];
+    let currentWeek: CalendarDay[] = [];
+    let curr = new Date(startDate);
+
+    const dateStrs: Date[] = [];
+    while (curr <= endDate) {
+      dateStrs.push(new Date(curr));
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    dateStrs.forEach((d, i) => {
+      const dateStr = d.toLocaleDateString('en-CA');
+      const isLogged = workoutDates.includes(dateStr);
+      const isRestored = restoredDates.includes(dateStr);
+      
+      const prevDate = new Date(d);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevStr = prevDate.toLocaleDateString('en-CA');
+      
+      const nextDate = new Date(d);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const nextStr = nextDate.toLocaleDateString('en-CA');
+
+      const prevIsLogged = workoutDates.includes(prevStr) || restoredDates.includes(prevStr);
+      const nextIsLogged = workoutDates.includes(nextStr) || restoredDates.includes(nextStr);
+
+      const isCurrentMonth = d.getMonth() === today.getMonth();
+      const isToday = d.getTime() === today.getTime();
+
+      currentWeek.push({
+        id: dateStr,
+        name: dayNames[currentWeek.length],
+        date: d.getDate(),
+        isLogged,
+        isRestored,
+        prevIsLogged,
+        nextIsLogged,
+        isCurrentMonth,
+        isToday
+      });
+
+      if (currentWeek.length === 7) {
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+    });
+
+    // If not expanded, we only want the week that contains 'today'
+    if (!expanded) {
+      return weeks.filter(w => w.some(d => d.isToday));
+    }
+
+    return weeks;
+  }, [workoutDates, restoredDates, expanded]);
 
   return (
     <View style={[styles.container, { backgroundColor: t.colors.background }]}>
-      {/* Top Handle / Close */}
       <View style={styles.topBar}>
         <View style={{ width: 32 }} />
         <View style={[styles.handle, { backgroundColor: t.colors.border }]} />
@@ -73,9 +151,8 @@ export default function StreakModal() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         
-        {/* Flame Header */}
         <View style={styles.hero}>
           <View style={[styles.flameCircle, { borderColor: t.colors.border }]}>
             <Flame size={48} color={isStreakActive ? "#FF9500" : t.colors.textMuted} fill={isStreakActive ? "#FF9500" : "transparent"} />
@@ -87,23 +164,63 @@ export default function StreakModal() {
           </Text>
         </View>
 
-        {/* Calendar Row */}
-        <View style={styles.calendarRow}>
-          {calendarDays.map((day) => (
-            <View key={day.id} style={styles.calendarCol}>
-              <Text style={[styles.dayName, { color: day.isLogged ? t.colors.text : t.colors.textMuted }]}>
-                {day.name}
-              </Text>
-              {day.isLogged ? (
-                <View style={[styles.dayCircle, styles.dayCircleLogged, { backgroundColor: '#FF9500' }]}>
-                  <Check size={16} color="#FFF" />
-                </View>
-              ) : (
-                <View style={[styles.dayCircle, { borderWidth: 2, borderColor: t.colors.border }]} />
-              )}
-            </View>
-          ))}
-        </View>
+        {/* Calendar Section */}
+        <Pressable style={styles.calendarWrapper} onPress={() => setExpanded(!expanded)}>
+          <View style={styles.calendarHeader}>
+            {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((day, i) => (
+              <Text key={i} style={[styles.dayNameHeader, { color: t.colors.textMuted }]}>{day}</Text>
+            ))}
+          </View>
+          
+          <View style={styles.calendarGrid}>
+            {calendarWeeks.map((week, wIdx) => (
+              <View key={wIdx} style={styles.calendarRow}>
+                {week.map((day) => {
+                  const isActive = day.isLogged || day.isRestored;
+                  const color = day.isRestored ? '#0A84FF' : '#FF9500';
+                  const bgColor = day.isRestored ? 'rgba(10, 132, 255, 0.15)' : 'rgba(255, 149, 0, 0.15)';
+
+                  return (
+                    <View key={day.id} style={styles.calendarCol}>
+                      {isActive && (
+                        <View style={[StyleSheet.absoluteFill, { justifyContent: 'center' }]}>
+                          {day.prevIsLogged && <View style={{ position: 'absolute', left: 0, width: '50%', height: 32, backgroundColor: bgColor }} />}
+                          {day.nextIsLogged && <View style={{ position: 'absolute', right: 0, width: '50%', height: 32, backgroundColor: bgColor }} />}
+                        </View>
+                      )}
+                      
+                      <View style={[
+                        styles.dayCircle,
+                        isActive && { backgroundColor: color },
+                        !isActive && day.isToday && { borderWidth: 2, borderColor: t.colors.border },
+                        !isActive && !day.isToday && { backgroundColor: 'transparent' }
+                      ]}>
+                        <Text style={[
+                          styles.dayNumber,
+                          { color: isActive ? '#FFF' : (day.isCurrentMonth ? t.colors.text : t.colors.textMuted) },
+                          (!day.isCurrentMonth && !isActive) && { opacity: 0.3 }
+                        ]}>
+                          {day.date}
+                        </Text>
+                        
+                        {/* Snowflake droplet for restored days */}
+                        {day.isRestored && (
+                          <View style={[styles.restoredBadge, { borderColor: t.colors.background }]}>
+                            <Snowflake size={10} color="#FFF" fill="#FFF" />
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+          
+          <View style={styles.expandHint}>
+            {expanded ? <ChevronUp size={20} color={t.colors.textMuted} /> : <ChevronDown size={20} color={t.colors.textMuted} />}
+          </View>
+        </Pressable>
 
         {/* Stats Card */}
         <View style={styles.statsContainer}>
@@ -137,26 +254,30 @@ export default function StreakModal() {
               onPress={canRestore ? handleRestore : undefined} 
               style={[
                 styles.restoreBtn, 
-                { backgroundColor: canRestore ? '#FF9500' : t.colors.card },
+                { backgroundColor: canRestore ? '#0A84FF' : t.colors.card },
                 !canRestore && { opacity: 0.5 }
               ]}
             >
-              <RefreshCw size={20} color={canRestore ? '#FFF' : t.colors.textMuted} />
+              {canRestore ? (
+                <Snowflake size={20} color="#FFF" />
+              ) : (
+                <RefreshCw size={20} color={t.colors.textMuted} />
+              )}
               <Text style={[styles.restoreBtnText, { color: canRestore ? '#FFF' : t.colors.textMuted }]}>
-                {canRestore ? "Restore Streak" : "Streak broken"}
+                {canRestore ? "Use Streak Freeze" : "Streak broken"}
               </Text>
             </Pressable>
             {canRestore ? (
               <Text style={[styles.restoreDesc, { color: t.colors.textMuted }]}>
-                Use your weekly streak repair to recover your progress.
+                Use your weekly streak freeze to recover your progress and keep your streak alive.
               </Text>
             ) : (displayStreak > 0 && streakDays === 1) ? (
               <Text style={[styles.restoreDesc, { color: t.colors.textMuted }]}>
-                You already started a new streak! Restore can only be used before starting a new one.
+                You already started a new streak! Freeze can only be used before starting a new one.
               </Text>
             ) : (
               <Text style={[styles.restoreDesc, { color: t.colors.textMuted }]}>
-                Restore is available once every 7 days when you break a streak.
+                Streak Freeze is available once every 7 days when you break a streak.
               </Text>
             )}
           </View>
@@ -221,21 +342,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  calendarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  calendarWrapper: {
     width: '100%',
-    marginBottom: 48,
-    paddingHorizontal: 8,
+    marginBottom: 32,
   },
-  calendarCol: {
-    alignItems: 'center',
-    gap: 12,
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  dayName: {
+  dayNameHeader: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 12,
     fontWeight: '700',
+  },
+  calendarGrid: {
+    width: '100%',
+    gap: 12,
+  },
+  calendarRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  calendarCol: {
+    flex: 1,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dayCircle: {
     width: 32,
@@ -243,13 +378,28 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
-  dayCircleLogged: {
-    shadowColor: '#FF9500',
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+  dayNumber: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  restoredBadge: {
+    position: 'absolute',
+    bottom: -6,
+    right: -6,
+    backgroundColor: '#0A84FF',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  expandHint: {
+    alignItems: 'center',
+    marginTop: 12,
+    opacity: 0.5,
   },
   statsContainer: {
     width: '100%',
