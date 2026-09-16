@@ -103,17 +103,33 @@ export const useStore = create<AppState>()(
       },
       restoreStreak: () => {
         set((state) => {
-          const today = new Date().toLocaleDateString('en-CA');
-          const yesterday = new Date();
+          const todayDate = new Date();
+          const yesterday = new Date(todayDate);
           yesterday.setDate(yesterday.getDate() - 1);
           const yesterdayStr = yesterday.toLocaleDateString('en-CA');
           
-          if (!state.workoutDates.includes(yesterdayStr)) {
-            return { 
-              workoutDates: [...state.workoutDates, yesterdayStr],
-              lastWorkoutDate: yesterdayStr,
-              lastRestoreDate: today
-            };
+          if (!state.workoutDates.includes(yesterdayStr) && state.lastWorkoutDate) {
+            // Find all missing days between lastWorkoutDate and yesterday
+            const missingDates = [];
+            let curr = new Date(state.lastWorkoutDate);
+            curr.setDate(curr.getDate() + 1); // start the day after last workout
+            
+            while (curr <= yesterday) {
+              const dStr = curr.toLocaleDateString('en-CA');
+              if (!state.workoutDates.includes(dStr)) {
+                missingDates.push(dStr);
+              }
+              curr.setDate(curr.getDate() + 1);
+            }
+
+            if (missingDates.length > 0) {
+              return { 
+                workoutDates: [...state.workoutDates, ...missingDates],
+                restoredDates: [...(state.restoredDates || []), ...missingDates],
+                lastWorkoutDate: yesterdayStr,
+                lastRestoreDate: new Date().toISOString(),
+              };
+            }
           }
           return state;
         });

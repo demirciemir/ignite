@@ -85,8 +85,12 @@ export default function Debug() {
             <Text style={[styles.btnText, { color: t.colors.text }]}>Set Streak to 5</Text>
           </Pressable>
 
+          <Pressable style={[styles.btn, { backgroundColor: t.colors.accent }]} onPress={() => shiftDays(-2)}>
+            <Text style={[styles.btnText, { color: '#FFF' }]}>Simulate Missing 1 Day</Text>
+          </Pressable>
+
           <Pressable style={[styles.btn, { backgroundColor: t.colors.accent }]} onPress={forceBreakStreak}>
-            <Text style={[styles.btnText, { color: '#FFF' }]}>Simulate Missing 2 Days (Break Streak)</Text>
+            <Text style={[styles.btnText, { color: '#FFF' }]}>Simulate Missing 2 Days</Text>
           </Pressable>
           
           <Pressable style={[styles.btn, { backgroundColor: t.colors.border }]} onPress={resetRestoreCooldown}>
