@@ -1,10 +1,10 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, ThemePreference } from '../src/store';
 import { useAppTheme } from '../src/theme';
-import { ChevronLeft, Monitor, Moon, Sun } from 'lucide-react-native';
+import { ChevronLeft, Monitor, Moon, Sun, Trash2 } from 'lucide-react-native';
 
 export default function Settings() {
   const router = useRouter();
@@ -56,17 +56,32 @@ export default function Settings() {
       </View>
 
       <View style={[styles.section, { backgroundColor: t.colors.card, marginTop: 24 }]}>
-        <Text style={[styles.sectionTitle, { color: t.colors.textMuted }]}>DEVELOPER</Text>
+        <Text style={[styles.sectionTitle, { color: t.colors.textMuted }]}>DATA MANAGEMENT</Text>
         <Pressable
           style={[styles.optionRow, { borderBottomWidth: 0 }]}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/debug');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert(
+              'Reset All Data',
+              'Are you sure you want to delete all workouts, streaks, and settings? This cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                  text: 'Reset', 
+                  style: 'destructive',
+                  onPress: () => {
+                    useStore.getState().resetAll();
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    router.back();
+                  }
+                }
+              ]
+            );
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Monitor size={20} color={t.colors.textMuted} />
-            <Text style={[styles.optionText, { color: t.colors.text }]}>Debug Tools</Text>
+            <Trash2 size={20} color={t.colors.accent} />
+            <Text style={[styles.optionText, { color: t.colors.accent, fontWeight: '700' }]}>Reset All Data</Text>
           </View>
         </Pressable>
       </View>

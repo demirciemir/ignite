@@ -46,6 +46,7 @@ export interface AppState {
   restoreStreak: () => void;
   setThemePreference: (pref: ThemePreference) => void;
   clearStreakAnimation: () => void;
+  resetAll: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -136,6 +137,19 @@ export const useStore = create<AppState>()(
       },
       clearStreakAnimation: () => set({ justEarnedStreak: false }),
       setThemePreference: (pref) => set({ themePreference: pref }),
+      resetAll: () => set({
+        workouts: [],
+        streakDays: 0,
+        lastWorkoutDate: null,
+        workoutDates: [],
+        restoredDates: [],
+        lastRestoreDate: null,
+        totalWorkoutsLogged: 0,
+        totalMinutesLogged: 0,
+        themePreference: 'system',
+        prepTime: 3,
+        justEarnedStreak: false,
+      }),
     }),
     {
       name: 'timer-hub-storage',
