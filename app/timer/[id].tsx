@@ -390,7 +390,7 @@ export default function ActiveTimer() {
   });
 
   const isWork = currentBlock.type === 'work';
-  const themeColor = isWork ? t.colors.accent : t.colors.textMuted;
+  const themeColor = isWork ? t.colors.accent : '#0A84FF';
 
   return (
     <Animated.View entering={FadeIn.duration(400)} style={[styles.container, { backgroundColor: t.colors.background }]}>
