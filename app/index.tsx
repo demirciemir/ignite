@@ -125,11 +125,9 @@ export default function Home() {
 
   return (
     <View style={[styles.wrapper, { backgroundColor: t.colors.background }]}>
-      {showAnimation && (
-        <Animated.View style={[{ position: 'absolute', top: 0, left: 0, zIndex: 9999 }, animatedFlameStyle]} pointerEvents="none">
-          <Flame size={100} color="#FF9500" fill="#FF9500" />
-        </Animated.View>
-      )}
+      <Animated.View style={[{ position: 'absolute', top: 0, left: 0, zIndex: 9999 }, animatedFlameStyle]} pointerEvents="none">
+        <Flame size={100} color="#FF9500" fill="#FF9500" />
+      </Animated.View>
 
       <ScrollView 
         style={styles.container} 

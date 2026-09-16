@@ -54,6 +54,22 @@ export default function Settings() {
         <Option pref="light" title="Light" icon={Sun} />
         <Option pref="dark" title="Dark" icon={Moon} />
       </View>
+
+      <View style={[styles.section, { backgroundColor: t.colors.card, marginTop: 24 }]}>
+        <Text style={[styles.sectionTitle, { color: t.colors.textMuted }]}>DEVELOPER</Text>
+        <Pressable
+          style={[styles.optionRow, { borderBottomWidth: 0 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/debug');
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Monitor size={20} color={t.colors.textMuted} />
+            <Text style={[styles.optionText, { color: t.colors.text }]}>Debug Tools</Text>
+          </View>
+        </Pressable>
+      </View>
     </View>
   );
 }

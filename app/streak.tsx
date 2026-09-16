@@ -146,9 +146,17 @@ export default function StreakModal() {
                 {canRestore ? "Restore Streak" : "Streak broken"}
               </Text>
             </Pressable>
-            {canRestore && (
+            {canRestore ? (
               <Text style={[styles.restoreDesc, { color: t.colors.textMuted }]}>
                 Use your weekly streak repair to recover your progress.
+              </Text>
+            ) : (displayStreak > 0 && streakDays === 1) ? (
+              <Text style={[styles.restoreDesc, { color: t.colors.textMuted }]}>
+                You already started a new streak! Restore can only be used before starting a new one.
+              </Text>
+            ) : (
+              <Text style={[styles.restoreDesc, { color: t.colors.textMuted }]}>
+                Restore is available once every 7 days when you break a streak.
               </Text>
             )}
           </View>
