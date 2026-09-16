@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { useStore } from '../src/store';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
@@ -37,52 +37,55 @@ export default function Home() {
   const flameScale = useSharedValue(0);
   const flameOpacity = useSharedValue(0);
 
+  const flameRef = useRef<View>(null);
+
   useFocusEffect(
     useCallback(() => {
-      // Re-evaluate displayStreak when screen comes into focus
       let currentComputed = streakDays;
       if (!lastWorkoutDate || (lastWorkoutDate !== today && lastWorkoutDate !== yesterdayStr)) {
         currentComputed = 0;
       }
 
       if (justEarnedStreak) {
-        setDisplayStreak(currentComputed - 1); // hold the old value during animation
+        setDisplayStreak(currentComputed - 1);
         setShowAnimation(true);
         
-        const targetX = width - 75; // Approx top-right flame icon X
-        const targetY = insets.top + 108; // Approx top-right flame icon Y
-        const centerX = width / 2 - 50;
-        const centerY = height / 2 - 50;
+        // Use requestAnimationFrame to let the UI render first
+        requestAnimationFrame(() => {
+          if (flameRef.current) {
+            flameRef.current.measure((x, y, w, h, px, py) => {
+              const targetX = px - 42; // Center 100x100 exactly over 16x16
+              const targetY = py - 42;
+              const centerX = width / 2 - 50;
+              const centerY = height / 2 - 50;
 
-        // Start from top-right icon position
-        flameX.value = targetX;
-        flameY.value = targetY;
-        flameScale.value = 0.16; // 16px relative to 100px
-        flameOpacity.value = 1;
+              flameX.value = targetX;
+              flameY.value = targetY;
+              flameScale.value = 0.16;
+              flameOpacity.value = 1;
 
-        // 1. Fly to center and grow
-        setTimeout(() => {
-          flameX.value = withTiming(centerX, { duration: 600, easing: Easing.out(Easing.back(1.5)) });
-          flameY.value = withTiming(centerY, { duration: 600, easing: Easing.out(Easing.back(1.5)) });
-          flameScale.value = withTiming(3, { duration: 600, easing: Easing.out(Easing.back(1.5)) });
-          
-          // 2. Wait in center, then fly back to top right
-          setTimeout(() => {
-            flameX.value = withTiming(targetX, { duration: 600, easing: Easing.inOut(Easing.cubic) });
-            flameY.value = withTiming(targetY, { duration: 600, easing: Easing.inOut(Easing.cubic) });
-            flameScale.value = withTiming(0.16, { duration: 600, easing: Easing.inOut(Easing.cubic) });
-            
-            // 3. Complete and increment
-            setTimeout(() => {
-              flameOpacity.value = 0;
-              setDisplayStreak(currentComputed);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setShowAnimation(false);
-              clearStreakAnimation();
-            }, 600);
-          }, 1000);
-        }, 100);
-
+              setTimeout(() => {
+                flameX.value = withTiming(centerX, { duration: 600, easing: Easing.out(Easing.back(1.5)) });
+                flameY.value = withTiming(centerY, { duration: 600, easing: Easing.out(Easing.back(1.5)) });
+                flameScale.value = withTiming(3, { duration: 600, easing: Easing.out(Easing.back(1.5)) });
+                
+                setTimeout(() => {
+                  flameX.value = withTiming(targetX, { duration: 600, easing: Easing.inOut(Easing.cubic) });
+                  flameY.value = withTiming(targetY, { duration: 600, easing: Easing.inOut(Easing.cubic) });
+                  flameScale.value = withTiming(0.16, { duration: 600, easing: Easing.inOut(Easing.cubic) });
+                  
+                  setTimeout(() => {
+                    flameOpacity.value = 0;
+                    setDisplayStreak(currentComputed);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    setShowAnimation(false);
+                    clearStreakAnimation();
+                  }, 600);
+                }, 1000);
+              }, 100);
+            });
+          }
+        });
       } else {
         setDisplayStreak(currentComputed);
       }
@@ -156,7 +159,7 @@ export default function Home() {
               onPress={() => { handlePress(); router.push('/streak'); }}
               style={[styles.streakPill, { backgroundColor: t.colors.card }]}
             >
-              <View style={{ opacity: showAnimation ? 0 : 1 }}>
+              <View ref={flameRef} style={{ opacity: showAnimation ? 0 : 1 }}>
                 <Flame size={16} color={displayStreak > 0 || showAnimation ? "#FF9500" : t.colors.textMuted} fill={displayStreak > 0 || showAnimation ? "#FF9500" : "transparent"} />
               </View>
               <Text style={[styles.streakText, { color: displayStreak > 0 ? t.colors.text : t.colors.textMuted }]}>{displayStreak}</Text>

@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, ThemePreference } from '../src/store';
 import { useAppTheme } from '../src/theme';
-import { ChevronLeft, Monitor, Moon, Sun, Trash2 } from 'lucide-react-native';
+import { ChevronLeft, Monitor, Moon, Sun, Trash2, Flame } from 'lucide-react-native';
 
 export default function Settings() {
   const router = useRouter();
@@ -53,6 +53,23 @@ export default function Settings() {
         <Option pref="system" title="System Default" icon={Monitor} />
         <Option pref="light" title="Light" icon={Sun} />
         <Option pref="dark" title="Dark" icon={Moon} />
+      </View>
+
+      <View style={[styles.section, { backgroundColor: t.colors.card, marginTop: 24 }]}>
+        <Text style={[styles.sectionTitle, { color: t.colors.textMuted }]}>DEVELOPER TOOLS</Text>
+        <Pressable
+          style={[styles.optionRow, { borderBottomColor: t.colors.border }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            useStore.setState({ justEarnedStreak: true });
+            router.push('/');
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Flame size={20} color={t.colors.textMuted} />
+            <Text style={[styles.optionText, { color: t.colors.text }]}>Test Streak Animation</Text>
+          </View>
+        </Pressable>
       </View>
 
       <View style={[styles.section, { backgroundColor: t.colors.card, marginTop: 24 }]}>
