@@ -143,17 +143,6 @@ export default function Home() {
         style={styles.container} 
         contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 20), paddingBottom: 100 }]}
       >
-        <Animated.View entering={FadeInDown.delay(100).springify()}>
-          <View style={styles.header}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={[styles.appIconBox, { backgroundColor: t.colors.text }]}>
-                <Timer size={24} color={t.colors.background} />
-              </View>
-              <Text style={[styles.headerTitle, { color: t.colors.text }]}>Timer App</Text>
-            </View>
-          </View>
-        </Animated.View>
-
         <Animated.View entering={FadeInDown.delay(200).springify()}>
           <View style={[styles.sectionHeader, { justifyContent: 'space-between' }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
