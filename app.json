@@ -8,7 +8,10 @@
     "scheme": "timerapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": {
+        "light": "./assets/images/icon.png",
+        "dark": "./assets/images/icon-dark.png"
+      },
       "bundleIdentifier": "com.emirdemirci.ignite",
       "buildNumber": "1",
       "infoPlist": {
@@ -39,9 +42,14 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#FAFAFA",
+          "image": "./assets/images/splash-icon-light.png",
+          "imageWidth": 150,
+          "dark": {
+            "backgroundColor": "#09090B",
+            "image": "./assets/images/splash-icon-dark.png",
+            "imageWidth": 150
+          }
         }
       ],
       "expo-audio",
