@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../src/store';
 import { useAppTheme } from '../src/theme';
-import { Flame, Check, RefreshCw, X, Snowflake, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Flame, Check, RefreshCw, X, Snowflake, ChevronDown, ChevronUp, Timer, Award } from 'lucide-react-native';
 
 interface CalendarDay {
   id: string;
@@ -46,13 +46,40 @@ export default function StreakModal() {
     displayStreak = 0;
   }
 
+  const isStreakActive = displayStreak > 0;
+
+  const longestStreak = useMemo(() => {
+    const all = [...new Set([...workoutDates, ...restoredDates])].sort();
+    if (all.length === 0) return 0;
+    
+    let max = 1;
+    let current = 1;
+    for (let i = 1; i < all.length; i++) {
+      const prev = new Date(all[i-1]);
+      const curr = new Date(all[i]);
+      const diff = (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
+      if (Math.round(diff) === 1) {
+        current++;
+        max = Math.max(max, current);
+      } else {
+        current = 1;
+      }
+    }
+    return Math.max(max, displayStreak);
+  }, [workoutDates, restoredDates, displayStreak]);
+
+  const formattedTime = useMemo(() => {
+    if (totalMinutesLogged < 60) return `${totalMinutesLogged}m`;
+    const h = Math.floor(totalMinutesLogged / 60);
+    const m = totalMinutesLogged % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }, [totalMinutesLogged]);
+
   const handleClose = () => router.back();
 
   const handleRestore = () => {
     restoreStreak();
   };
-
-  const isStreakActive = displayStreak > 0;
 
   // Restore logic
   const canRestore = displayStreak === 0 && streakDays > 0 && 
@@ -222,28 +249,22 @@ export default function StreakModal() {
           </View>
         </Pressable>
 
-        {/* Stats Card */}
-        <View style={styles.statsContainer}>
-          <View style={[styles.statsHeader]}>
-            <Text style={[styles.statsTitle, { color: t.colors.textMuted }]}>Your Stats</Text>
-          </View>
-          <View style={[styles.statsCard, { backgroundColor: t.colors.card }]}>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: t.colors.textMuted }]}>Days</Text>
-                <Text style={[styles.statValue, { color: t.colors.text }]}>{workoutDates.length}</Text>
-              </View>
-              <View style={[styles.statDivider, { backgroundColor: t.colors.border }]} />
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: t.colors.textMuted }]}>Sessions</Text>
-                <Text style={[styles.statValue, { color: t.colors.text }]}>{totalWorkoutsLogged}</Text>
-              </View>
-              <View style={[styles.statDivider, { backgroundColor: t.colors.border }]} />
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: t.colors.textMuted }]}>Minutes</Text>
-                <Text style={[styles.statValue, { color: t.colors.text }]}>{totalMinutesLogged}</Text>
-              </View>
+        {/* Bento Stats */}
+        <View style={styles.bentoStatsContainer}>
+          <View style={[styles.bentoCard, { backgroundColor: t.colors.card }]}>
+            <View style={[styles.bentoIcon, { backgroundColor: 'rgba(255, 149, 0, 0.15)' }]}>
+              <Award size={20} color="#FF9500" />
             </View>
+            <Text style={[styles.bentoValue, { color: t.colors.text }]}>{longestStreak} <Text style={{ fontSize: 16 }}>Days</Text></Text>
+            <Text style={[styles.bentoLabel, { color: t.colors.textMuted }]}>Longest Streak</Text>
+          </View>
+
+          <View style={[styles.bentoCard, { backgroundColor: t.colors.card }]}>
+            <View style={[styles.bentoIcon, { backgroundColor: 'rgba(10, 132, 255, 0.15)' }]}>
+              <Timer size={20} color="#0A84FF" />
+            </View>
+            <Text style={[styles.bentoValue, { color: t.colors.text }]}>{formattedTime}</Text>
+            <Text style={[styles.bentoLabel, { color: t.colors.textMuted }]}>Total Focus</Text>
           </View>
         </View>
 
@@ -401,51 +422,34 @@ const styles = StyleSheet.create({
     marginTop: 12,
     opacity: 0.5,
   },
-  statsContainer: {
+  bentoStatsContainer: {
     width: '100%',
+    flexDirection: 'row',
+    gap: 16,
     marginBottom: 32,
   },
-  statsHeader: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 8,
-  },
-  statsTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  statsCard: {
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
-    elevation: 3,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statItem: {
+  bentoCard: {
     flex: 1,
+    borderRadius: 24,
+    padding: 20,
+    alignItems: 'flex-start',
+  },
+  bentoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    marginBottom: 16,
   },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  statValue: {
+  bentoValue: {
     fontSize: 24,
     fontWeight: '800',
+    marginBottom: 4,
   },
-  statDivider: {
-    width: 1,
-    height: 32,
-    opacity: 0.5,
+  bentoLabel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   restoreSection: {
     width: '100%',
