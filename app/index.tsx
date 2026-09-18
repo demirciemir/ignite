@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react
 import { useStore } from '../src/store';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, Settings, Play, Trash2, Edit2, Timer, Flame, ChevronLeft } from 'lucide-react-native';
+import { Plus, Settings, Play, Trash2, Edit2, Timer, Flame, ChevronLeft, Quote } from 'lucide-react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '../src/theme';
@@ -13,7 +13,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function Home() {
   const workouts = useStore((s) => s.workouts);
-  const { streakDays, lastWorkoutDate, justEarnedStreak, clearStreakAnimation } = useStore();
+  const { streakDays, lastWorkoutDate, justEarnedStreak, clearStreakAnimation, totalMinutesLogged, totalWorkoutsLogged } = useStore();
   const removeWorkout = useStore((s) => s.removeWorkout);
   const insets = useSafeAreaInsets();
   const t = useAppTheme();
@@ -143,6 +143,15 @@ export default function Home() {
         style={styles.container} 
         contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 20), paddingBottom: 100 }]}
       >
+        {/* Motivation Text */}
+        <Animated.View entering={FadeInDown.delay(100).springify()}>
+          <View style={styles.quoteContainer}>
+            <Text style={[styles.quoteText, { color: t.colors.text }]}>
+              "Focus is a muscle. The more you use it, the stronger it gets."
+            </Text>
+          </View>
+        </Animated.View>
+
         <Animated.View entering={FadeInDown.delay(200).springify()}>
           <View style={[styles.sectionHeader, { justifyContent: 'space-between' }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -252,6 +261,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 2,
+  },
+  quoteContainer: {
+    paddingHorizontal: 8,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  quoteText: {
+    fontSize: 28,
+    fontWeight: '800',
+    lineHeight: 34,
+    letterSpacing: -0.5,
+    opacity: 0.85,
   },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 8 },
   sectionTitle: { fontSize: 22, fontWeight: '800' },
