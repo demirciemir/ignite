@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions, useWindowDim
 import { useStore } from '../src/store';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, Settings, Play, Trash2, Edit2, Timer, Flame, ChevronLeft, Quote } from 'lucide-react-native';
+import { Plus, Settings, Play, Trash2, Edit2, Timer, Flame, ChevronLeft, Quote, BarChart2 } from 'lucide-react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '../src/theme';
@@ -245,9 +245,13 @@ export default function Home() {
 
       {/* Fake Tab Bar */}
       <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: t.colors.background }]}>
-        <View style={styles.tabItem}>
-          {/* Left empty as requested */}
-        </View>
+        <Pressable 
+          onPress={() => { handlePress(); router.push('/streak'); }}
+          style={styles.tabItem}
+        >
+          <BarChart2 size={24} color={t.colors.textMuted} />
+          <Text style={[styles.tabLabel, { color: t.colors.textMuted }]}>Stats</Text>
+        </Pressable>
         <Pressable 
           onPress={() => { handlePress(); router.push('/builder'); }} 
           style={[styles.fabBtn, { backgroundColor: t.colors.text, shadowColor: t.colors.text }]}
