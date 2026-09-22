@@ -2,21 +2,17 @@ import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
-import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { useAppTheme } from '../src/theme';
+import * as SystemUI from 'expo-system-ui';
+import { useEffect } from 'react';
 
 export default function RootLayout() {
   const t = useAppTheme();
-  const navTheme = {
-    ...(t.isDark ? DarkTheme : DefaultTheme),
-    colors: {
-      ...(t.isDark ? DarkTheme.colors : DefaultTheme.colors),
-      background: t.colors.background,
-    },
-  };
 
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(t.colors.background);
+  }, [t.colors.background]);
   return (
-    <ThemeProvider value={navTheme}>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.colors.background }}>
       <BottomSheetModalProvider>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.colors.background } }}>
@@ -40,6 +36,5 @@ export default function RootLayout() {
         </Stack>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
-    </ThemeProvider>
   );
 }
