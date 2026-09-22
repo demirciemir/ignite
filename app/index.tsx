@@ -11,7 +11,34 @@ import Animated, { FadeInDown, Layout, useSharedValue, useAnimatedStyle, withSpr
 
 const { width, height } = Dimensions.get('window');
 
+const QUOTES = [
+  "Discipline equals freedom.",
+  "Focus on the step, not the mountain.",
+  "Consistency over intensity.",
+  "Starve distractions, feed focus.",
+  "Where focus goes, energy flows.",
+  "Action precedes motivation.",
+  "Small habits, big results.",
+  "One thing at a time.",
+  "Start before you're ready.",
+  "Make it happen."
+];
+
 export default function Home() {
+  const [dailyQuote, setDailyQuote] = useState(QUOTES[0]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setDailyQuote(prev => {
+        let next;
+        do {
+          next = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+        } while (next === prev);
+        return next;
+      });
+    }, [])
+  );
+
   const workouts = useStore((s) => s.workouts);
   const { streakDays, lastWorkoutDate, justEarnedStreak, clearStreakAnimation, totalMinutesLogged, totalWorkoutsLogged } = useStore();
   const removeWorkout = useStore((s) => s.removeWorkout);
@@ -147,7 +174,7 @@ export default function Home() {
         <Animated.View entering={FadeInDown.delay(100).springify()}>
           <View style={styles.quoteContainer}>
             <Text style={[styles.quoteText, { color: t.colors.text }]}>
-              "Focus is a muscle. The more you use it, the stronger it gets."
+              {dailyQuote}
             </Text>
           </View>
         </Animated.View>
