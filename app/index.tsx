@@ -8,6 +8,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '../src/theme';
 import Animated, { FadeInDown, Layout, useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated';
+import { scheduleStreakReminder } from '../src/notifications';
 
 
 
@@ -79,6 +80,8 @@ export default function Home() {
       if (!lastWorkoutDate || (lastWorkoutDate !== today && lastWorkoutDate !== yesterdayStr)) {
         currentComputed = 0;
       }
+      
+      scheduleStreakReminder(lastWorkoutDate);
 
       if (justEarnedStreak) {
         setDisplayStreak(currentComputed - 1);
