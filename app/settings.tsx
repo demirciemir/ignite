@@ -1,10 +1,10 @@
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, Linking, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, ThemePreference } from '../src/store';
 import { useAppTheme } from '../src/theme';
-import { ChevronLeft, Monitor, Moon, Sun, Trash2, Flame } from 'lucide-react-native';
+import { ChevronLeft, Monitor, Moon, Sun, Trash2, Flame, Shield, FileText, Mail, ChevronRight } from 'lucide-react-native';
 
 export default function Settings() {
   const router = useRouter();
@@ -36,7 +36,10 @@ export default function Settings() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: t.colors.background, paddingTop: Math.max(insets.top, 10) }]}>
+    <ScrollView 
+      style={[styles.container, { backgroundColor: t.colors.background }]} 
+      contentContainerStyle={{ paddingTop: Math.max(insets.top, 10), paddingBottom: Math.max(insets.bottom, 20) }}
+    >
       <View style={{ alignItems: 'center', marginBottom: 16 }}>
         <View style={[styles.dragIndicator, { backgroundColor: t.colors.border }]} />
       </View>
@@ -103,11 +106,42 @@ export default function Settings() {
         </Pressable>
       </View>
 
+      {/* About & Legal Section */}
+      <Text style={[styles.sectionTitle, { color: t.colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginTop: 16 }]}>
+        About & Legal
+      </Text>
+      <View style={[styles.section, { backgroundColor: t.colors.card }]}>
+        <Pressable 
+          style={[styles.optionRow, { borderBottomColor: t.colors.border }]}
+          onPress={() => Linking.openURL('https://ignitetimer.com/privacy')}
+        >
+          <Shield size={20} color={t.colors.textMuted} style={styles.optionIcon} />
+          <Text style={[styles.optionText, { color: t.colors.text }]}>Privacy Policy</Text>
+          <ChevronRight size={16} color={t.colors.border} style={{ marginLeft: 'auto' }} />
+        </Pressable>
+        <Pressable 
+          style={[styles.optionRow, { borderBottomColor: t.colors.border }]}
+          onPress={() => Linking.openURL('https://ignitetimer.com/terms')}
+        >
+          <FileText size={20} color={t.colors.textMuted} style={styles.optionIcon} />
+          <Text style={[styles.optionText, { color: t.colors.text }]}>Terms of Use</Text>
+          <ChevronRight size={16} color={t.colors.border} style={{ marginLeft: 'auto' }} />
+        </Pressable>
+        <Pressable 
+          style={[styles.optionRow, { borderBottomWidth: 0 }]}
+          onPress={() => Linking.openURL('mailto:support@ignitetimer.com')}
+        >
+          <Mail size={20} color={t.colors.textMuted} style={styles.optionIcon} />
+          <Text style={[styles.optionText, { color: t.colors.text }]}>Contact Support</Text>
+          <ChevronRight size={16} color={t.colors.border} style={{ marginLeft: 'auto' }} />
+        </Pressable>
+      </View>
+
       <View style={styles.footer}>
         <Text style={[styles.footerText, { color: t.colors.textMuted }]}>Designed by Emir Demirci</Text>
         <Text style={[styles.footerVersion, { color: t.colors.textMuted }]}>Version 1.0.0</Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
