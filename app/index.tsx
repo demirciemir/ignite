@@ -26,10 +26,19 @@ const QUOTES = [
 
 export default function Home() {
   const { width, height } = useWindowDimensions();
-  const [dailyQuote, setDailyQuote] = useState(QUOTES[0]);
+  
+  // Initialize randomly on app launch
+  const [dailyQuote, setDailyQuote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
 
-  useFocusEffect(
-    useCallback(() => {
+  const workouts = useStore((s) => s.workouts);
+  const { streakDays, lastWorkoutDate, justEarnedStreak, clearStreakAnimation, totalMinutesLogged, totalWorkoutsLogged } = useStore();
+  const removeWorkout = useStore((s) => s.removeWorkout);
+  
+  const prevWorkouts = useRef(totalWorkoutsLogged);
+
+  // Change quote only when a session is completed
+  React.useEffect(() => {
+    if (totalWorkoutsLogged > prevWorkouts.current) {
       setDailyQuote(prev => {
         let next;
         do {
@@ -37,12 +46,9 @@ export default function Home() {
         } while (next === prev);
         return next;
       });
-    }, [])
-  );
-
-  const workouts = useStore((s) => s.workouts);
-  const { streakDays, lastWorkoutDate, justEarnedStreak, clearStreakAnimation, totalMinutesLogged, totalWorkoutsLogged } = useStore();
-  const removeWorkout = useStore((s) => s.removeWorkout);
+      prevWorkouts.current = totalWorkoutsLogged;
+    }
+  }, [totalWorkoutsLogged]);
   const insets = useSafeAreaInsets();
   const t = useAppTheme();
 
