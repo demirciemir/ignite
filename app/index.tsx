@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions, useWindowDimensions } from 'react-native';
 import { useStore } from '../src/store';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '../src/theme';
 import Animated, { FadeInDown, Layout, useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated';
 
-const { width, height } = Dimensions.get('window');
+
 
 const QUOTES = [
   "Discipline equals freedom.",
@@ -25,6 +25,7 @@ const QUOTES = [
 ];
 
 export default function Home() {
+  const { width, height } = useWindowDimensions();
   const [dailyQuote, setDailyQuote] = useState(QUOTES[0]);
 
   useFocusEffect(

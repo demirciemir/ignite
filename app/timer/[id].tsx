@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions, ScrollView, AppState } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Dimensions, ScrollView, AppState, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter, Redirect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
@@ -25,15 +25,16 @@ Notifications.setNotificationHandler({
   }),
 });
 
-const { width } = Dimensions.get('window');
-const CIRCLE_SIZE = width * 0.75;
-const STROKE_WIDTH = 8;
-const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export default function ActiveTimer() {
+  const { width } = useWindowDimensions();
+  const CIRCLE_SIZE = width * 0.75;
+  const STROKE_WIDTH = 8;
+  const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useAppTheme();
