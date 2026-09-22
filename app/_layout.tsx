@@ -33,6 +33,14 @@ export default function RootLayout() {
             name="streak" 
             options={{ presentation: 'modal', gestureEnabled: true, gestureDirection: 'vertical' }} 
           />
+          <Stack.Screen 
+            name="privacy" 
+            options={{ presentation: 'modal', gestureEnabled: true, gestureDirection: 'vertical' }} 
+          />
+          <Stack.Screen 
+            name="terms" 
+            options={{ presentation: 'modal', gestureEnabled: true, gestureDirection: 'vertical' }} 
+          />
         </Stack>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>

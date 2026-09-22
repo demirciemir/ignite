@@ -113,7 +113,7 @@ export default function Settings() {
       <View style={[styles.section, { backgroundColor: t.colors.card }]}>
         <Pressable 
           style={[styles.optionRow, { borderBottomColor: t.colors.border }]}
-          onPress={() => Linking.openURL('https://ignitetimer.com/privacy')}
+          onPress={() => router.push('/privacy')}
         >
           <Shield size={20} color={t.colors.textMuted} style={styles.optionIcon} />
           <Text style={[styles.optionText, { color: t.colors.text }]}>Privacy Policy</Text>
@@ -121,7 +121,7 @@ export default function Settings() {
         </Pressable>
         <Pressable 
           style={[styles.optionRow, { borderBottomColor: t.colors.border }]}
-          onPress={() => Linking.openURL('https://ignitetimer.com/terms')}
+          onPress={() => router.push('/terms')}
         >
           <FileText size={20} color={t.colors.textMuted} style={styles.optionIcon} />
           <Text style={[styles.optionText, { color: t.colors.text }]}>Terms of Use</Text>
@@ -129,7 +129,7 @@ export default function Settings() {
         </Pressable>
         <Pressable 
           style={[styles.optionRow, { borderBottomWidth: 0 }]}
-          onPress={() => Linking.openURL('mailto:support@ignitetimer.com')}
+          onPress={() => Linking.openURL('mailto:emirdemirci1637@gmail.com')}
         >
           <Mail size={20} color={t.colors.textMuted} style={styles.optionIcon} />
           <Text style={[styles.optionText, { color: t.colors.text }]}>Contact Support</Text>
