@@ -249,7 +249,7 @@ export default function Home() {
           onPress={() => { handlePress(); router.push('/streak'); }}
           style={styles.tabItem}
         >
-          <BarChart2 size={24} color={t.colors.textMuted} />
+          <BarChart2 size={28} color={t.colors.textMuted} />
           <Text style={[styles.tabLabel, { color: t.colors.textMuted }]}>Stats</Text>
         </Pressable>
         <Pressable 
@@ -262,7 +262,7 @@ export default function Home() {
           onPress={() => { handlePress(); router.push('/settings'); }}
           style={styles.tabItem}
         >
-          <Settings size={24} color={t.colors.textMuted} />
+          <Settings size={28} color={t.colors.textMuted} />
           <Text style={[styles.tabLabel, { color: t.colors.textMuted }]}>Settings</Text>
         </Pressable>
       </View>
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   tabItem: { alignItems: 'center', gap: 4, width: 80 },
-  tabLabel: { fontSize: 12, fontWeight: '600' },
+  tabLabel: { fontSize: 13, fontWeight: '700' },
   fabBtn: {
     width: 64,
     height: 64,
