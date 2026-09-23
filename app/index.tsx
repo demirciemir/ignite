@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions, useWindowDimensions } from 'react-native';
 import { useStore } from '../src/store';
-import { Link, useRouter, useFocusEffect } from 'expo-router';
+import { Link, useRouter, useFocusEffect, Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus, Settings, Play, Trash2, Edit2, Timer, Flame, ChevronLeft, Quote, BarChart2 } from 'lucide-react-native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -9,8 +9,6 @@ import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '../src/theme';
 import Animated, { FadeInDown, Layout, useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated';
 import { scheduleStreakReminder } from '../src/notifications';
-
-
 
 const QUOTES = [
   "Discipline equals freedom.",
@@ -27,6 +25,11 @@ const QUOTES = [
 
 export default function Home() {
   const { width, height } = useWindowDimensions();
+  const hasSeenOnboarding = useStore(s => s.hasSeenOnboarding);
+
+  if (!hasSeenOnboarding) {
+    return <Redirect href="/onboarding" />;
+  }
   
   // Initialize randomly on app launch
   const [dailyQuote, setDailyQuote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);

@@ -41,6 +41,14 @@ export default function RootLayout() {
             name="terms" 
             options={{ presentation: 'modal', gestureEnabled: true, gestureDirection: 'vertical' }} 
           />
+          <Stack.Screen 
+            name="onboarding" 
+            options={{ animation: 'fade' }} 
+          />
+          <Stack.Screen 
+            name="history" 
+            options={{ animation: 'slide_from_right' }} 
+          />
         </Stack>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>

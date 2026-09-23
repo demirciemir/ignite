@@ -1,10 +1,10 @@
-import { View, Text, StyleSheet, Pressable, Alert, Linking, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, Linking, ScrollView, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, ThemePreference } from '../src/store';
 import { useAppTheme } from '../src/theme';
-import { ChevronLeft, Monitor, Moon, Sun, Trash2, Flame, Shield, FileText, Mail, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, Monitor, Moon, Sun, Trash2, Flame, Shield, FileText, Mail, ChevronRight, Volume2, Vibrate } from 'lucide-react-native';
 
 export default function Settings() {
   const router = useRouter();
@@ -13,6 +13,10 @@ export default function Settings() {
   
   const themePref = useStore(s => s.themePreference);
   const setThemePref = useStore(s => s.setThemePreference);
+  const hapticsEnabled = useStore(s => s.hapticsEnabled);
+  const setHapticsEnabled = useStore(s => s.setHapticsEnabled);
+  const soundEnabled = useStore(s => s.soundEnabled);
+  const setSoundEnabled = useStore(s => s.setSoundEnabled);
 
   const handlePress = (pref: ThemePreference) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

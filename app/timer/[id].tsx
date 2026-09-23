@@ -8,11 +8,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, IntervalBlock } from '../../src/store';
 import { useAppTheme } from '../../src/theme';
 import Animated, { 
-  FadeIn, FadeOut, FadeInRight, FadeOutLeft, ZoomIn, ZoomOut, runOnJS,
+  FadeIn, FadeOut, FadeInRight, FadeOutLeft, FadeInDown, ZoomIn, ZoomOut, runOnJS,
   useSharedValue, useAnimatedStyle, useAnimatedProps, withSpring, withTiming,
   interpolateColor, Extrapolation, interpolate, Easing
 } from 'react-native-reanimated';
-import { Play, Pause, X, SkipForward, ArrowLeft, CheckCircle2, Timer } from 'lucide-react-native';
+import { Play, Pause, X, SkipForward, ArrowLeft, CheckCircle2, Timer, Activity, Zap } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 Notifications.setNotificationHandler({
@@ -42,11 +42,16 @@ export default function ActiveTimer() {
   
   const workout = useStore((s) => s.workouts.find((w) => w.id === id));
   const logWorkout = useStore((s) => s.logWorkout);
+  const hapticsEnabled = useStore((s) => s.hapticsEnabled);
+  const soundEnabled = useStore((s) => s.soundEnabled);
   
   if (!workout) return <Redirect href="/" />;
   
   const blocks = workout.blocks as IntervalBlock[];
   const totalRoutineDuration = useMemo(() => blocks.reduce((acc, b) => acc + b.durationSeconds, 0), [blocks]);
+  const workDurationSeconds = useMemo(() => blocks.filter(b => b.type === 'work').reduce((acc, b) => acc + b.durationSeconds, 0), [blocks]);
+  const restDurationSeconds = useMemo(() => blocks.filter(b => b.type === 'rest').reduce((acc, b) => acc + b.durationSeconds, 0), [blocks]);
+  const roundsCompleted = useMemo(() => blocks.filter(b => b.type === 'work').length, [blocks]);
 
   // Absolute Time State
   const [state, setState] = useState<'idle' | 'countdown' | 'running' | 'paused' | 'resuming' | 'finished'>('idle');
@@ -102,7 +107,7 @@ export default function ActiveTimer() {
   }, []);
 
   const playSound = async (type: 'work' | 'rest' | 'complete' | 'tick' | 'go') => {
-    if (AppState.currentState !== 'active') return;
+    if (AppState.currentState !== 'active' || !soundEnabled) return;
     try {
       if (type === 'work') { await workSound.seekTo(0); workSound.play(); }
       else if (type === 'rest') { await restSound.seekTo(0); restSound.play(); }
@@ -118,7 +123,7 @@ export default function ActiveTimer() {
     playSound('tick');
   };
   const playEnd = () => {
-    if (AppState.currentState === 'active') {
+    if (AppState.currentState === 'active' && hapticsEnabled) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
     playSound('go');
@@ -238,7 +243,14 @@ export default function ActiveTimer() {
        if (true) {
           Notifications.cancelAllScheduledNotificationsAsync();
           setState('finished');
-          logWorkout(totalRoutineDuration);
+          logWorkout({
+              workoutId: workout.id,
+              workoutName: workout.name,
+              totalDurationSeconds: totalRoutineDuration,
+              workDurationSeconds,
+              restDurationSeconds,
+              roundsCompleted
+            });
           playSound('complete');
        }
     } else {
@@ -367,7 +379,14 @@ export default function ActiveTimer() {
     } else {
       Notifications.cancelAllScheduledNotificationsAsync();
       setState('finished');
-      logWorkout(totalRoutineDuration);
+      logWorkout({
+              workoutId: workout.id,
+              workoutName: workout.name,
+              totalDurationSeconds: totalRoutineDuration,
+              workDurationSeconds,
+              restDurationSeconds,
+              roundsCompleted
+            });
       playSound('complete');
     }
   };
@@ -396,15 +415,76 @@ export default function ActiveTimer() {
   return (
     <Animated.View entering={FadeIn.duration(400)} style={[styles.container, { backgroundColor: t.colors.background }]}>
       {state === 'finished' ? (
-        <Animated.View entering={FadeIn.delay(300).duration(400)} style={[styles.finishedView, StyleSheet.absoluteFill]}>
-          <Animated.View entering={FadeIn.delay(500).duration(500)}>
-            <CheckCircle2 size={100} color={t.colors.success} />
-          </Animated.View>
-          <Text style={[styles.finishedTitle, { color: t.colors.text, marginTop: 24 }]}>Session Complete!</Text>
-          <Text style={[styles.finishedSub, { color: t.colors.textMuted }]}>Great job completing {workout.name}.</Text>
-          <Pressable onPress={handleClose} style={[styles.finishedBtn, { backgroundColor: t.colors.card }]}>
-            <ArrowLeft size={32} color={t.colors.text} />
-          </Pressable>
+        <Animated.View entering={FadeIn.delay(200).duration(500)} style={[StyleSheet.absoluteFill, { backgroundColor: t.colors.background }]}>
+          
+          {/* Top Half - Success Colors */}
+          <View style={{ flex: 1, backgroundColor: '#FF3B30', justifyContent: 'center', alignItems: 'center', borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}>
+            <Animated.View entering={FadeInDown.delay(400).springify()}>
+              <View style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center' }}>
+                  <CheckCircle2 size={50} color="#FF3B30" />
+                </View>
+              </View>
+            </Animated.View>
+            <Animated.Text entering={FadeInDown.delay(500)} style={{ color: 'white', fontSize: 24, fontWeight: '800', marginTop: 24, letterSpacing: 0.5 }}>Tebrikler!</Animated.Text>
+            <Animated.Text entering={FadeInDown.delay(600)} style={{ color: 'rgba(255,255,255,0.8)', fontSize: 18, fontWeight: '600', marginTop: 8 }}>Tamamlandı</Animated.Text>
+          </View>
+
+          {/* Bottom Half - Stats & Buttons */}
+          <View style={{ flex: 1.2, paddingHorizontal: 24, paddingTop: 32, justifyContent: 'space-between', paddingBottom: insets.bottom + 24 }}>
+            
+            <Animated.View entering={FadeInDown.delay(700)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 }}>
+              {/* Stat 1: Streak */}
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(52, 199, 89, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                  <Zap size={24} color="#34C759" />
+                </View>
+                <Text style={{ fontSize: 24, fontWeight: '700', color: t.colors.text }}>{streakDays}</Text>
+                <Text style={{ fontSize: 12, color: t.colors.textMuted, textAlign: 'center', marginTop: 4 }}>Günler{'\n'}ardarda</Text>
+              </View>
+
+              {/* Stat 2: Rounds */}
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255, 59, 48, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                  <Activity size={24} color="#FF3B30" />
+                </View>
+                <Text style={{ fontSize: 24, fontWeight: '700', color: t.colors.text }}>{roundsCompleted}</Text>
+                <Text style={{ fontSize: 12, color: t.colors.textMuted, textAlign: 'center', marginTop: 4 }}>Turlar{'\n'}Tamamlandı</Text>
+              </View>
+
+              {/* Stat 3: Total Time */}
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(10, 132, 255, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                  <Timer size={24} color="#0A84FF" />
+                </View>
+                <Text style={{ fontSize: 24, fontWeight: '700', color: t.colors.text }}>{`${Math.floor(totalRoutineDuration / 60).toString().padStart(2, '0')}:${(totalRoutineDuration % 60).toString().padStart(2, '0')}`}</Text>
+                <Text style={{ fontSize: 12, color: t.colors.textMuted, textAlign: 'center', marginTop: 4 }}>Toplam{'\n'}süre</Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View entering={FadeInDown.delay(900)} style={{ flexDirection: 'row', gap: 16 }}>
+              <Pressable 
+                onPress={() => {
+                  if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.replace('/history' as any);
+                }} 
+                style={{ flex: 1, paddingVertical: 18, borderRadius: 16, backgroundColor: t.colors.card, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FF3B30' }}>Geçmişi Göster</Text>
+              </Pressable>
+              
+              <Pressable 
+                onPress={() => {
+                  if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.replace('/' as any);
+                }} 
+                style={{ flex: 1, paddingVertical: 18, borderRadius: 16, backgroundColor: '#FF3B30', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>Tamamla</Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+
         </Animated.View>
       ) : (
         <Animated.View exiting={FadeOut} style={[StyleSheet.absoluteFill, { alignItems: 'center' }]}>

@@ -24,10 +24,22 @@ export type Workout = {
   blocks: WorkoutBlock[];
 };
 
+export type WorkoutLog = {
+  id: string;
+  workoutId: string;
+  workoutName: string;
+  date: string;
+  totalDurationSeconds: number;
+  workDurationSeconds: number;
+  restDurationSeconds: number;
+  roundsCompleted: number;
+};
+
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 export interface AppState {
   workouts: Workout[];
+  history: WorkoutLog[];
   streakDays: number;
   lastWorkoutDate: string | null;
   workoutDates: string[];
@@ -35,14 +47,23 @@ export interface AppState {
   lastRestoreDate: string | null;
   totalWorkoutsLogged: number;
   totalMinutesLogged: number;
+  totalWorkSeconds: number;
+  totalRestSeconds: number;
+  totalRounds: number;
   themePreference: ThemePreference;
   prepTime: number;
+  hapticsEnabled: boolean;
+  soundEnabled: boolean;
+  hasSeenOnboarding: boolean;
   setPrepTime: (time: number) => void;
+  setHapticsEnabled: (enabled: boolean) => void;
+  setSoundEnabled: (enabled: boolean) => void;
+  setHasSeenOnboarding: (seen: boolean) => void;
   justEarnedStreak: boolean;
   addWorkout: (workout: Workout) => void;
   removeWorkout: (id: string) => void;
   updateWorkout: (id: string, workout: Workout) => void;
-  logWorkout: (durationSeconds: number) => void;
+  logWorkout: (details: { workoutId: string; workoutName: string; totalDurationSeconds: number; workDurationSeconds: number; restDurationSeconds: number; roundsCompleted: number; }) => void;
   restoreStreak: () => void;
   setThemePreference: (pref: ThemePreference) => void;
   clearStreakAnimation: () => void;
@@ -53,34 +74,62 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       workouts: [],
+      history: [],
       streakDays: 0,
       lastWorkoutDate: null,
       workoutDates: [],
-        restoredDates: [],
+      restoredDates: [],
       lastRestoreDate: null,
       totalWorkoutsLogged: 0,
       totalMinutesLogged: 0,
+      totalWorkSeconds: 0,
+      totalRestSeconds: 0,
+      totalRounds: 0,
       themePreference: 'system',
       prepTime: 3,
+      hapticsEnabled: true,
+      soundEnabled: true,
+      hasSeenOnboarding: false,
       setPrepTime: (time) => set({ prepTime: time }),
+      setHapticsEnabled: (enabled) => set({ hapticsEnabled: enabled }),
+      setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
+      setHasSeenOnboarding: (seen) => set({ hasSeenOnboarding: seen }),
       justEarnedStreak: false,
       addWorkout: (workout) => set((state) => ({ workouts: [...state.workouts, workout] })),
       removeWorkout: (id) => set((state) => ({ workouts: state.workouts.filter(w => w.id !== id) })),
       updateWorkout: (id, workout) => set((state) => ({ 
         workouts: state.workouts.map(w => w.id === id ? workout : w) 
       })),
-      logWorkout: (durationSeconds) => {
-        const today = new Date().toLocaleDateString('en-CA');
+      logWorkout: (details) => {
+        const now = new Date();
+        const today = now.toLocaleDateString('en-CA');
+        const logEntry: WorkoutLog = {
+          id: Math.random().toString(36).substr(2, 9),
+          date: now.toISOString(),
+          ...details
+        };
         
         set((state) => {
           const newWorkouts = state.totalWorkoutsLogged + 1;
-          const newMinutes = state.totalMinutesLogged + Math.round(durationSeconds / 60);
+          const newMinutes = state.totalMinutesLogged + Math.round(details.totalDurationSeconds / 60);
+          
+          const newHistory = [logEntry, ...(state.history || [])];
+          const newTotalWork = (state.totalWorkSeconds || 0) + details.workDurationSeconds;
+          const newTotalRest = (state.totalRestSeconds || 0) + details.restDurationSeconds;
+          const newTotalRounds = (state.totalRounds || 0) + details.roundsCompleted;
 
           if (state.lastWorkoutDate === today) {
-            return { totalWorkoutsLogged: newWorkouts, totalMinutesLogged: newMinutes };
+            return { 
+              totalWorkoutsLogged: newWorkouts, 
+              totalMinutesLogged: newMinutes,
+              history: newHistory,
+              totalWorkSeconds: newTotalWork,
+              totalRestSeconds: newTotalRest,
+              totalRounds: newTotalRounds
+            };
           }
           
-          const newDates = [...state.workoutDates, today];
+          const newDates = [...(state.workoutDates || []), today];
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
           const yesterdayStr = yesterday.toLocaleDateString('en-CA');
@@ -98,7 +147,11 @@ export const useStore = create<AppState>()(
             streakDays: newStreak,
             totalWorkoutsLogged: newWorkouts,
             totalMinutesLogged: newMinutes,
-            justEarnedStreak: true
+            justEarnedStreak: true,
+            history: newHistory,
+            totalWorkSeconds: newTotalWork,
+            totalRestSeconds: newTotalRest,
+            totalRounds: newTotalRounds
           };
         });
       },
@@ -110,10 +163,9 @@ export const useStore = create<AppState>()(
           const yesterdayStr = yesterday.toLocaleDateString('en-CA');
           
           if (!state.workoutDates.includes(yesterdayStr) && state.lastWorkoutDate) {
-            // Find all missing days between lastWorkoutDate and yesterday
             const missingDates = [];
             let curr = new Date(state.lastWorkoutDate);
-            curr.setDate(curr.getDate() + 1); // start the day after last workout
+            curr.setDate(curr.getDate() + 1);
             
             while (curr <= yesterday) {
               const dStr = curr.toLocaleDateString('en-CA');
@@ -139,6 +191,7 @@ export const useStore = create<AppState>()(
       setThemePreference: (pref) => set({ themePreference: pref }),
       resetAll: () => set({
         workouts: [],
+        history: [],
         streakDays: 0,
         lastWorkoutDate: null,
         workoutDates: [],
@@ -146,8 +199,14 @@ export const useStore = create<AppState>()(
         lastRestoreDate: null,
         totalWorkoutsLogged: 0,
         totalMinutesLogged: 0,
+        totalWorkSeconds: 0,
+        totalRestSeconds: 0,
+        totalRounds: 0,
         themePreference: 'system',
         prepTime: 3,
+        hapticsEnabled: true,
+        soundEnabled: true,
+        hasSeenOnboarding: false,
         justEarnedStreak: false,
       }),
     }),

@@ -1,0 +1,21 @@
+- `[/]` Phase 1: State Management Updates (Zustand)
+  - Add `WorkoutLog` type and history array
+  - Add detailed stat accumulators (`totalWorkSeconds`, `totalRounds`, etc.)
+  - Add preferences (`hapticsEnabled`, `soundEnabled`, `hasSeenOnboarding`)
+  - Update `logWorkout` to accept detailed session data
+- `[ ]` Phase 2: Onboarding Flow (`app/onboarding.tsx`)
+  - Create 3-step introductory flow with stock images
+  - Add logic to show once on first launch
+- `[ ]` Phase 3: Settings Updates (`app/settings.tsx`)
+  - Add Haptics and Sounds toggles
+  - Bind to actual feedback logic in the timer
+- `[ ]` Phase 4: Detailed Stats & Streak UI (`app/streak.tsx`)
+  - Enhance "Total Focus" to HH:MM format
+  - Add new Bento boxes for Work, Rest, Rounds
+- `[ ]` Phase 5: Session Complete Screen Redesign (`app/timer/[id].tsx`)
+  - Redesign finished state with top/bottom split (Green top, White stats bottom)
+  - Show precise session breakdown
+  - Add "Show History" button
+- `[ ]` Phase 6: History Screen (`app/history.tsx`)
+  - Create screen to list all `WorkoutLog` items
+  - Group or display by date and time

@@ -31,6 +31,9 @@ export default function StreakModal() {
     lastRestoreDate,
     totalWorkoutsLogged,
     totalMinutesLogged,
+    totalWorkSeconds,
+    totalRestSeconds,
+    totalRounds,
     restoreStreak
   } = useStore();
 
@@ -68,12 +71,17 @@ export default function StreakModal() {
     return Math.max(max, displayStreak);
   }, [workoutDates, restoredDates, displayStreak]);
 
+    const formatHMS = (totalSecs: number) => {
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    if (h > 0) return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   const formattedTime = useMemo(() => {
-    if (totalMinutesLogged < 60) return `${totalMinutesLogged}m`;
-    const h = Math.floor(totalMinutesLogged / 60);
-    const m = totalMinutesLogged % 60;
-    return m > 0 ? `${h}h ${m}m` : `${h}h`;
-  }, [totalMinutesLogged]);
+    return formatHMS((totalMinutesLogged * 60) + (totalWorkSeconds || 0));
+  }, [totalMinutesLogged, totalWorkSeconds]);
 
   const handleClose = () => router.back();
 
