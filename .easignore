@@ -1,0 +1,43 @@
+# Dependencies and generated output
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+*.tsbuildinfo
+
+# Native build output and signing material
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+/ios
+/android
+
+# Local environment and debug files
+.env*.local
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+
+# Development-only project files
+/.agents
+/.claude
+/.superpowers
+/.vscode
+/docs
+/scripts
+/*.py
+/AGENTS.md
+/CLAUDE.md
+/implementation_plan.md
+/task.md
+/README.md
+/LICENSE
+/example

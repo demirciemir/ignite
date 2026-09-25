@@ -13,11 +13,12 @@
         "dark": "./assets/images/icon-dark.png"
       },
       "bundleIdentifier": "com.emirdemirci.ignite",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -29,7 +30,13 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.emirdemirci.ignite",
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "web": {
       "output": "static",
@@ -54,11 +61,18 @@
       ],
       "expo-audio",
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9fd07812-9a25-461a-9d7b-51ecbafd31ab"
+      }
     }
   }
 }

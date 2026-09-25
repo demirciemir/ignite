@@ -4,7 +4,34 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, ThemePreference } from '../src/store';
 import { useAppTheme } from '../src/theme';
-import { ChevronLeft, Monitor, Moon, Sun, Trash2, Flame, Shield, FileText, Mail, ChevronRight, Volume2, Vibrate } from 'lucide-react-native';
+import { Monitor, Moon, Sun, Trash2, Shield, FileText, Mail, ChevronRight, Volume2, Vibrate } from 'lucide-react-native';
+
+type AppearanceOptionProps = {
+  pref: ThemePreference;
+  title: string;
+  icon: typeof Monitor;
+  selected: boolean;
+  colors: ReturnType<typeof useAppTheme>['colors'];
+  onPress: (pref: ThemePreference) => void;
+};
+
+function AppearanceOption({ pref, title, icon: Icon, selected, colors, onPress }: AppearanceOptionProps) {
+  return (
+    <Pressable
+      style={[
+        styles.optionRow,
+        { borderBottomColor: colors.border },
+        selected && { backgroundColor: colors.buttonSecondary },
+      ]}
+      onPress={() => onPress(pref)}
+    >
+      <View style={styles.optionIcon}>
+        <Icon size={20} color={selected ? colors.accent : colors.text} />
+      </View>
+      <Text style={[styles.optionText, { color: colors.text }]}>{title}</Text>
+    </Pressable>
+  );
+}
 
 export default function Settings() {
   const router = useRouter();
@@ -19,64 +46,53 @@ export default function Settings() {
   const setSoundEnabled = useStore(s => s.setSoundEnabled);
 
   const handlePress = (pref: ThemePreference) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setThemePref(pref);
   };
-
-  const Option = ({ pref, title, icon: Icon }: { pref: ThemePreference, title: string, icon: any }) => (
-    <Pressable
-      style={[
-        styles.optionRow, 
-        { borderBottomColor: t.colors.border },
-        themePref === pref && { backgroundColor: t.colors.buttonSecondary }
-      ]}
-      onPress={() => handlePress(pref)}
-    >
-      <View style={styles.optionIcon}>
-        <Icon size={20} color={themePref === pref ? t.colors.accent : t.colors.text} />
-      </View>
-      <Text style={[styles.optionText, { color: t.colors.text }]}>{title}</Text>
-    </Pressable>
-  );
 
   return (
     <ScrollView 
       style={[styles.container, { backgroundColor: t.colors.background }]} 
-      contentContainerStyle={{ paddingTop: Math.max(insets.top, 10), paddingBottom: Math.max(insets.bottom, 20) }}
+      contentContainerStyle={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom, 20) }}
     >
-      <View style={{ alignItems: 'center', marginBottom: 16 }}>
-        <View style={[styles.dragIndicator, { backgroundColor: t.colors.border }]} />
-      </View>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <ChevronLeft size={28} color={t.colors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: t.colors.text }]}>Settings</Text>
-        <View style={{ width: 28 }} />
+      <View style={{ alignItems: 'center', marginBottom: 16, marginTop: 0 }}>
+        <View style={[styles.dragIndicator, { backgroundColor: t.colors.border, marginBottom: 16 }]} />
+        <Text style={[styles.title, { color: t.colors.text, textTransform: 'uppercase' }]}>Settings</Text>
       </View>
 
       <View style={[styles.section, { backgroundColor: t.colors.card }]}>
         <Text style={[styles.sectionTitle, { color: t.colors.textMuted }]}>APPEARANCE</Text>
-        <Option pref="system" title="System Default" icon={Monitor} />
-        <Option pref="light" title="Light" icon={Sun} />
-        <Option pref="dark" title="Dark" icon={Moon} />
+        <AppearanceOption pref="system" title="System Default" icon={Monitor} selected={themePref === 'system'} colors={t.colors} onPress={handlePress} />
+        <AppearanceOption pref="light" title="Light" icon={Sun} selected={themePref === 'light'} colors={t.colors} onPress={handlePress} />
+        <AppearanceOption pref="dark" title="Dark" icon={Moon} selected={themePref === 'dark'} colors={t.colors} onPress={handlePress} />
       </View>
 
       <View style={[styles.section, { backgroundColor: t.colors.card, marginTop: 24 }]}>
-        <Text style={[styles.sectionTitle, { color: t.colors.textMuted }]}>DEVELOPER TOOLS</Text>
-        <Pressable
-          style={[styles.optionRow, { borderBottomColor: t.colors.border }]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            useStore.setState({ justEarnedStreak: true });
-            router.back();
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Flame size={20} color={t.colors.textMuted} />
-            <Text style={[styles.optionText, { color: t.colors.text }]}>Test Streak Animation</Text>
-          </View>
-        </Pressable>
+        <Text style={[styles.sectionTitle, { color: t.colors.textMuted }]}>PREFERENCES</Text>
+        <View style={[styles.optionRow, { borderBottomColor: t.colors.border }]}>
+          <Vibrate size={20} color={t.colors.textMuted} style={styles.optionIcon} />
+          <Text style={[styles.optionText, { color: t.colors.text, flex: 1 }]}>Haptics (Vibrations)</Text>
+          <Switch
+            value={hapticsEnabled}
+            onValueChange={(val) => {
+              if (val) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setHapticsEnabled(val);
+            }}
+            trackColor={{ false: t.colors.border, true: t.colors.accent }}
+          />
+        </View>
+        <View style={[styles.optionRow, { borderBottomWidth: 0 }]}>
+          <Volume2 size={20} color={t.colors.textMuted} style={styles.optionIcon} />
+          <Text style={[styles.optionText, { color: t.colors.text, flex: 1 }]}>Timer Sounds</Text>
+          <Switch
+            value={soundEnabled}
+            onValueChange={(val) => {
+              if (val && hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSoundEnabled(val);
+            }}
+            trackColor={{ false: t.colors.border, true: t.colors.accent }}
+          />
+        </View>
       </View>
 
       <View style={[styles.section, { backgroundColor: t.colors.card, marginTop: 24 }]}>
@@ -84,7 +100,7 @@ export default function Settings() {
         <Pressable
           style={[styles.optionRow, { borderBottomWidth: 0 }]}
           onPress={() => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             Alert.alert(
               'Reset All Data',
               'Are you sure you want to delete all workouts, streaks, and settings? This cannot be undone.',
@@ -95,7 +111,7 @@ export default function Settings() {
                   style: 'destructive',
                   onPress: () => {
                     useStore.getState().resetAll();
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                     router.back();
                   }
                 }
@@ -160,7 +176,11 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   backBtn: { padding: 4 },
-  title: { fontSize: 20, fontWeight: '700' },
+  title: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
   section: {
     marginHorizontal: 16,
     borderRadius: 16,

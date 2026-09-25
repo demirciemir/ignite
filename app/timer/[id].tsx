@@ -5,14 +5,14 @@ import * as Haptics from 'expo-haptics';
 import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import * as Notifications from 'expo-notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useStore, IntervalBlock } from '../../src/store';
+import { useStore, IntervalBlock, Workout } from '../../src/store';
 import { useAppTheme } from '../../src/theme';
 import Animated, { 
-  FadeIn, FadeOut, FadeInRight, FadeOutLeft, FadeInDown, ZoomIn, ZoomOut, runOnJS,
+  FadeIn, FadeOut, FadeInRight, FadeOutLeft, FadeInDown, FadeInUp, ZoomIn, ZoomOut, runOnJS,
   useSharedValue, useAnimatedStyle, useAnimatedProps, withSpring, withTiming,
   interpolateColor, Extrapolation, interpolate, Easing
 } from 'react-native-reanimated';
-import { Play, Pause, X, SkipForward, ArrowLeft, CheckCircle2, Timer, Activity, Zap } from 'lucide-react-native';
+import { Play, Pause, X, SkipForward, ArrowLeft, CheckCircle2, Check, Timer, Activity, Zap } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 Notifications.setNotificationHandler({
@@ -29,23 +29,54 @@ Notifications.setNotificationHandler({
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
+function getTimerPosition(blocks: IntervalBlock[], elapsed: number) {
+  let accumulated = 0;
+
+  for (let index = 0; index < blocks.length; index++) {
+    const block = blocks[index];
+    const durationWithGap = block.durationSeconds + 1;
+
+    if (elapsed < accumulated + durationWithGap) {
+      return {
+        blockIdx: index,
+        timeLeft: Math.max(0, accumulated + block.durationSeconds - elapsed),
+        finished: false,
+      };
+    }
+
+    accumulated += durationWithGap;
+  }
+
+  return {
+    blockIdx: Math.max(0, blocks.length - 1),
+    timeLeft: 0,
+    finished: true,
+  };
+}
+
 export default function ActiveTimer() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const workout = useStore((s) => s.workouts.find((item) => item.id === id));
+
+  if (!workout) return <Redirect href="/" />;
+
+  return <TimerSession workout={workout} />;
+}
+
+function TimerSession({ workout }: { workout: Workout }) {
   const { width } = useWindowDimensions();
   const CIRCLE_SIZE = width * 0.75;
   const STROKE_WIDTH = 8;
   const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useAppTheme();
   const insets = useSafeAreaInsets();
   
-  const workout = useStore((s) => s.workouts.find((w) => w.id === id));
+  const streakDays = useStore((s) => s.streakDays);
   const logWorkout = useStore((s) => s.logWorkout);
   const hapticsEnabled = useStore((s) => s.hapticsEnabled);
   const soundEnabled = useStore((s) => s.soundEnabled);
-  
-  if (!workout) return <Redirect href="/" />;
   
   const blocks = workout.blocks as IntervalBlock[];
   const totalRoutineDuration = useMemo(() => blocks.reduce((acc, b) => acc + b.durationSeconds, 0), [blocks]);
@@ -61,23 +92,21 @@ export default function ActiveTimer() {
   const [currentTotalElapsed, setCurrentTotalElapsed] = useState(0);
 
   // Derived UI State
-  const [blockIdx, setBlockIdx] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(blocks[0].durationSeconds);
+  const { blockIdx, timeLeft, finished } = useMemo(
+    () => getTimerPosition(blocks, currentTotalElapsed),
+    [blocks, currentTotalElapsed]
+  );
   const prepTime = useStore((s) => s.prepTime);
   const setPrepTime = useStore((s) => s.setPrepTime);
   const [countdown, setCountdown] = useState(prepTime);
 
-  useEffect(() => {
-    if (state === 'idle') {
-      setCountdown(prepTime);
-    }
-  }, [prepTime, state]);
-
   const cyclePrepTime = () => {
-    Haptics.selectionAsync();
+    if (hapticsEnabled) Haptics.selectionAsync();
     const cycle = [0, 3, 5, 10, 15];
     const nextIdx = (cycle.indexOf(prepTime) + 1) % cycle.length;
-    setPrepTime(cycle[nextIdx]);
+    const nextPrepTime = cycle[nextIdx];
+    setPrepTime(nextPrepTime);
+    setCountdown(nextPrepTime);
   };
   
   const currentBlock = blocks[blockIdx] || blocks[0];
@@ -134,7 +163,11 @@ export default function ActiveTimer() {
     
     if (prepOffset > 0 && startTotalElapsed === 0) {
        await Notifications.scheduleNotificationAsync({
-          content: { title: `${blocks[0].type === 'work' ? 'Work' : 'Rest'} Time!`, body: blocks[0].name || `Session started`, sound: true },
+          content: { 
+            title: 'SESSION STARTED', 
+            body: blocks[0].name ? `First up: ${blocks[0].name.toUpperCase()}` : `First up: ${blocks[0].type === 'work' ? 'WORK' : 'REST'}`, 
+            sound: true 
+          },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(1, prepOffset) } as Notifications.NotificationTriggerInput
        });
     }
@@ -148,14 +181,24 @@ export default function ActiveTimer() {
             
             if (i === blocks.length - 1) {
                 await Notifications.scheduleNotificationAsync({
-                    content: { title: "Session Complete!", body: `Great job completing ${workout.name}!`, sound: true },
+                    content: { 
+                      title: "SESSION COMPLETE", 
+                      body: `Routine: ${workout.name.toUpperCase()} is done.`, 
+                      sound: true 
+                    },
                     trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(1, secondsUntilEnd) } as Notifications.NotificationTriggerInput
                 });
             } else {
                 const nextBlock = blocks[i + 1];
-                const typeStr = nextBlock.type === 'work' ? 'Work' : 'Rest';
+                const typeStr = nextBlock.type === 'work' ? 'WORK' : 'REST';
+                
+                const title = `${typeStr} TIME`;
+                const body = nextBlock.name 
+                  ? `Up next: ${nextBlock.name.toUpperCase()}` 
+                  : (nextBlock.type === 'work' ? 'Time to focus.' : 'Catch your breath.');
+
                 await Notifications.scheduleNotificationAsync({
-                    content: { title: `${typeStr} Time!`, body: nextBlock.name || `Next block started`, sound: true },
+                    content: { title, body, sound: true },
                     trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(1, secondsUntilEnd) } as Notifications.NotificationTriggerInput
                 });
             }
@@ -182,7 +225,8 @@ export default function ActiveTimer() {
                setBaseTotalElapsed(0);
                setCurrentTotalElapsed(0);
                
-               const startTime = Date.now();
+               // Calculate mathematical start time so background pauses during prep don't reset timer
+               const startTime = countdownStartTime + (prepTime * 1000);
                setRunningStartTime(startTime);
                
                runOnJS(setState)('running');
@@ -214,66 +258,41 @@ export default function ActiveTimer() {
   useEffect(() => {
     if (state !== 'running' && state !== 'idle') return;
     
-    let acc = 0;
-    let bIdx = blocks.length - 1;
-    let tLeft = 0;
-    let finished = false;
-
-    const totalRoutineDurationWithGaps = blocks.reduce((sum, b) => sum + b.durationSeconds + 1, 0);
-
-    for (let i = 0; i < blocks.length; i++) {
-      const blockDurationWithGap = blocks[i].durationSeconds + 1;
-      if (currentTotalElapsed < acc + blockDurationWithGap) {
-         bIdx = i;
-         tLeft = Math.max(0, (acc + blocks[i].durationSeconds) - currentTotalElapsed);
-         break;
-      }
-      acc += blockDurationWithGap;
-    }
-
-    if (currentTotalElapsed >= totalRoutineDurationWithGaps) {
-       finished = true;
-       tLeft = 0;
-    }
-
     const prevBIdx = prevBlockIdxRef.current;
     const prevTLeft = prevTimeLeftRef.current;
 
     if (finished) {
-       if (true) {
-          Notifications.cancelAllScheduledNotificationsAsync();
-          setState('finished');
-          logWorkout({
-              workoutId: workout.id,
-              workoutName: workout.name,
-              totalDurationSeconds: totalRoutineDuration,
-              workDurationSeconds,
-              restDurationSeconds,
-              roundsCompleted
-            });
-          playSound('complete');
-       }
+       Notifications.cancelAllScheduledNotificationsAsync();
+       setTimeout(() => setState('finished'), 0);
+       logWorkout({
+           workoutId: workout.id,
+           workoutName: workout.name,
+           totalDurationSeconds: totalRoutineDuration,
+           workDurationSeconds,
+           restDurationSeconds,
+           roundsCompleted
+         });
+       playSound('complete');
     } else {
-        if (bIdx > prevBIdx) {
+        if (blockIdx > prevBIdx) {
             progress.value = 1;
-            if (prevTLeft > 0) playSound(blocks[bIdx].type);
-        } else if (tLeft !== prevTLeft) {
-            if (tLeft === 0) {
-                if (bIdx === blocks.length - 1) playEnd();
-                else playSound(blocks[bIdx + 1].type);
+            if (prevTLeft > 0) playSound(blocks[blockIdx].type);
+        } else if (timeLeft !== prevTLeft) {
+            if (timeLeft === 0) {
+                if (blockIdx === blocks.length - 1) playEnd();
+                else playSound(blocks[blockIdx + 1].type);
             }
-            else if (tLeft <= 3 && tLeft > 0) playTick();
+            else if (timeLeft <= 3 && timeLeft > 0) playTick();
         }
     }
 
-    prevBlockIdxRef.current = bIdx;
-    prevTimeLeftRef.current = tLeft;
-    setBlockIdx(bIdx);
-    setTimeLeft(tLeft);
+    prevBlockIdxRef.current = blockIdx;
+    prevTimeLeftRef.current = timeLeft;
     
-  }, [currentTotalElapsed, state, blocks, totalRoutineDuration]);
+  }, [blockIdx, timeLeft, finished, state, blocks, totalRoutineDuration]);
 
   // Sync circular progress animation
+  /* eslint-disable react-hooks/immutability -- Reanimated SharedValue is designed to be updated imperatively. */
   useEffect(() => {
     if (state === 'idle') {
       progress.value = 1;
@@ -281,6 +300,7 @@ export default function ActiveTimer() {
       progress.value = withTiming(timeLeft / currentBlock.durationSeconds, { duration: 1000, easing: Easing.linear });
     }
   }, [timeLeft, currentBlock.durationSeconds, state]);
+  /* eslint-enable react-hooks/immutability */
 
   const accumulatedTimes = useMemo(() => {
     const times = [];
@@ -307,7 +327,7 @@ export default function ActiveTimer() {
   }, [blockIdx, state]);
 
   const handleStart = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (prepTime === 0) {
        playSound(blocks[0].type);
        setBaseTotalElapsed(0);
@@ -324,7 +344,7 @@ export default function ActiveTimer() {
   };
 
   const handlePause = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     svgOpacity.value = withTiming(0.3, { duration: 300 });
     Notifications.cancelAllScheduledNotificationsAsync();
     
@@ -341,7 +361,7 @@ export default function ActiveTimer() {
   };
 
   const handleResume = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setState('resuming');
     resumeProgress.value = 0;
     const currentTarget = timeLeft / currentBlock.durationSeconds;
@@ -355,7 +375,7 @@ export default function ActiveTimer() {
   };
 
   const handleSkip = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (blockIdx < blocks.length - 1) {
       const nextIdx = blockIdx + 1;
       const nextType = blocks[nextIdx].type;
@@ -415,74 +435,79 @@ export default function ActiveTimer() {
   return (
     <Animated.View entering={FadeIn.duration(400)} style={[styles.container, { backgroundColor: t.colors.background }]}>
       {state === 'finished' ? (
-        <Animated.View entering={FadeIn.delay(200).duration(500)} style={[StyleSheet.absoluteFill, { backgroundColor: t.colors.background }]}>
+        <Animated.View entering={FadeIn.duration(400)} style={[StyleSheet.absoluteFill, { backgroundColor: t.colors.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
           
-          {/* Top Half - Success Colors */}
-          <View style={{ flex: 1, backgroundColor: '#FF3B30', justifyContent: 'center', alignItems: 'center', borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}>
-            <Animated.View entering={FadeInDown.delay(400).springify()}>
-              <View style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' }}>
-                <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center' }}>
-                  <CheckCircle2 size={50} color="#FF3B30" />
-                </View>
-              </View>
-            </Animated.View>
-            <Animated.Text entering={FadeInDown.delay(500)} style={{ color: 'white', fontSize: 24, fontWeight: '800', marginTop: 24, letterSpacing: 0.5 }}>Tebrikler!</Animated.Text>
-            <Animated.Text entering={FadeInDown.delay(600)} style={{ color: 'rgba(255,255,255,0.8)', fontSize: 18, fontWeight: '600', marginTop: 8 }}>Tamamlandı</Animated.Text>
+          <View style={{ width: '100%', alignItems: 'center' }}>
+            {/* Wrapper for the rings and icon to perfectly center them together */}
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+              {/* Concentric expanding circles */}
+              <Animated.View entering={ZoomIn.duration(1000).springify()} style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(16, 185, 129, 0.03)' }} />
+              <Animated.View entering={ZoomIn.delay(100).duration(1000).springify()} style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(16, 185, 129, 0.06)' }} />
+              
+              <Animated.View entering={ZoomIn.delay(200).duration(800).springify()} style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(16, 185, 129, 0.15)', justifyContent: 'center', alignItems: 'center', shadowColor: '#10B981', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 30, elevation: 10 }}>
+                <Check size={56} color="#10B981" strokeWidth={3} />
+              </Animated.View>
+            </View>
+
+            {/* DONE Text Overlapping the Icon */}
+            <Animated.Text entering={FadeIn.delay(400).duration(800)} style={{ color: t.colors.text, fontSize: 80, fontWeight: '900', letterSpacing: -4, textTransform: 'uppercase', marginTop: -34, zIndex: 10 }}>
+              DONE.
+            </Animated.Text>
+            
+            {/* great job text */}
+            <Animated.Text entering={FadeInUp.delay(500).springify().damping(14).mass(0.8)} style={{ color: t.colors.textMuted, fontSize: 16, fontWeight: '500', letterSpacing: 1, marginTop: -5, opacity: 0.7 }}>
+              great job.
+            </Animated.Text>
           </View>
 
-          {/* Bottom Half - Stats & Buttons */}
-          <View style={{ flex: 1.2, paddingHorizontal: 24, paddingTop: 32, justifyContent: 'space-between', paddingBottom: insets.bottom + 24 }}>
-            
-            <Animated.View entering={FadeInDown.delay(700)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 }}>
-              {/* Stat 1: Streak */}
-              <View style={{ alignItems: 'center', flex: 1 }}>
-                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(52, 199, 89, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                  <Zap size={24} color="#34C759" />
-                </View>
-                <Text style={{ fontSize: 24, fontWeight: '700', color: t.colors.text }}>{streakDays}</Text>
-                <Text style={{ fontSize: 12, color: t.colors.textMuted, textAlign: 'center', marginTop: 4 }}>Günler{'\n'}ardarda</Text>
-              </View>
+          {/* Spacer between Hero and Card */}
+          <View style={{ height: 48 }} />
 
-              {/* Stat 2: Rounds */}
-              <View style={{ alignItems: 'center', flex: 1 }}>
-                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255, 59, 48, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                  <Activity size={24} color="#FF3B30" />
-                </View>
-                <Text style={{ fontSize: 24, fontWeight: '700', color: t.colors.text }}>{roundsCompleted}</Text>
-                <Text style={{ fontSize: 12, color: t.colors.textMuted, textAlign: 'center', marginTop: 4 }}>Turlar{'\n'}Tamamlandı</Text>
-              </View>
+          {/* Bottom Group shifted down by 15px as requested */}
+          <View style={{ width: '100%', alignItems: 'center', transform: [{ translateY: 45 }] }}>
+            {/* Round Back Button Above */}
+            <Animated.View entering={FadeInUp.delay(550).springify().damping(14).mass(0.8)}>
+            <Pressable 
+              onPress={() => {
+                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.replace('/' as any);
+              }} 
+              style={({ pressed }) => [{ width: 64, height: 64, borderRadius: 32, backgroundColor: t.colors.card, alignItems: 'center', justifyContent: 'center', marginBottom: 24, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 }, pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] }]}
+            >
+              <ArrowLeft size={32} color={t.colors.text} strokeWidth={2.5} />
+            </Pressable>
+          </Animated.View>
 
-              {/* Stat 3: Total Time */}
-              <View style={{ alignItems: 'center', flex: 1 }}>
-                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(10, 132, 255, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                  <Timer size={24} color="#0A84FF" />
-                </View>
-                <Text style={{ fontSize: 24, fontWeight: '700', color: t.colors.text }}>{`${Math.floor(totalRoutineDuration / 60).toString().padStart(2, '0')}:${(totalRoutineDuration % 60).toString().padStart(2, '0')}`}</Text>
-                <Text style={{ fontSize: 12, color: t.colors.textMuted, textAlign: 'center', marginTop: 4 }}>Toplam{'\n'}süre</Text>
-              </View>
-            </Animated.View>
+          {/* Master Card (Total Time) Below */}
+          <Animated.View entering={FadeInUp.delay(650).springify().damping(14).mass(0.8)} style={{ width: '100%', backgroundColor: t.colors.card, borderRadius: 28, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 }}>
+            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ fontSize: 11, color: t.colors.textMuted, fontWeight: '800', letterSpacing: 3, marginBottom: 4 }}>TOTAL TIME</Text>
+              <Text style={{ fontSize: 44, fontWeight: '900', color: t.colors.text, fontVariant: ['tabular-nums'], letterSpacing: -1 }}>
+                {`${Math.floor(totalRoutineDuration / 60).toString().padStart(2, '0')}:${(totalRoutineDuration % 60).toString().padStart(2, '0')}`}
+              </Text>
+            </View>
 
-            <Animated.View entering={FadeInDown.delay(900)} style={{ flexDirection: 'row', gap: 16 }}>
-              <Pressable 
-                onPress={() => {
-                  if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.replace('/history' as any);
-                }} 
-                style={{ flex: 1, paddingVertical: 18, borderRadius: 16, backgroundColor: t.colors.card, alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FF3B30' }}>Geçmişi Göster</Text>
-              </Pressable>
-              
-              <Pressable 
-                onPress={() => {
-                  if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.replace('/' as any);
-                }} 
-                style={{ flex: 1, paddingVertical: 18, borderRadius: 16, backgroundColor: '#FF3B30', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>Tamamla</Text>
-              </Pressable>
-            </Animated.View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#FF3B30', fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>Work</Text>
+                <Text style={{ color: t.colors.text, fontSize: 16, fontWeight: '800', marginTop: 2 }}>
+                  {`${Math.floor(workDurationSeconds / 60).toString().padStart(2, '0')}:${(workDurationSeconds % 60).toString().padStart(2, '0')}`}
+                </Text>
+              </View>
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text style={{ color: '#0A84FF', fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>Rest</Text>
+                <Text style={{ color: t.colors.text, fontSize: 16, fontWeight: '800', marginTop: 2 }}>
+                  {`${Math.floor(restDurationSeconds / 60).toString().padStart(2, '0')}:${(restDurationSeconds % 60).toString().padStart(2, '0')}`}
+                </Text>
+              </View>
+            </View>
+
+            {/* Progress Bar Representation */}
+            <View style={{ height: 6, borderRadius: 3, backgroundColor: t.colors.border, flexDirection: 'row', overflow: 'hidden' }}>
+              <View style={{ width: `${totalRoutineDuration > 0 ? (workDurationSeconds / totalRoutineDuration) * 100 : 0}%`, backgroundColor: '#FF3B30', height: '100%' }} />
+              <View style={{ width: `${totalRoutineDuration > 0 ? (restDurationSeconds / totalRoutineDuration) * 100 : 0}%`, backgroundColor: '#0A84FF', height: '100%' }} />
+            </View>
+          </Animated.View>
           </View>
 
         </Animated.View>
@@ -717,6 +742,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 8,
     textAlign: 'center',
+    textTransform: 'uppercase',
   },
   timelineContainer: {
     width: '100%',
@@ -744,6 +770,7 @@ const styles = StyleSheet.create({
   timelineName: {
     fontSize: 14,
     fontWeight: '700',
+    textTransform: 'uppercase',
   },
   timelineTime: {
     fontSize: 12,

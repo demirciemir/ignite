@@ -1,3 +1,4 @@
+import { useStore } from '../src/store';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +7,7 @@ import { ChevronLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 export default function TermsOfUse() {
+  const hapticsEnabled = useStore(s => s.hapticsEnabled);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useAppTheme();
@@ -19,7 +21,7 @@ export default function TermsOfUse() {
         <View style={styles.headerContent}>
           <Pressable 
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               router.back();
             }} 
             style={styles.backBtn}
@@ -36,7 +38,7 @@ export default function TermsOfUse() {
         
         <Text style={[styles.heading, { color: t.colors.text, marginTop: 0 }]}>1. Acceptance of Terms</Text>
         <Text style={[styles.paragraph, { color: t.colors.text }]}>
-          By downloading or using Ignite ("the App"), you agree to be bound by these Terms of Use. If you do not agree to these terms, please do not use the App.
+          By downloading or using Ignite (“the App”), you agree to be bound by these Terms of Use. If you do not agree to these terms, please do not use the App.
         </Text>
 
         <Text style={[styles.heading, { color: t.colors.text }]}>2. Medical Disclaimer</Text>

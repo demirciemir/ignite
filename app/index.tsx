@@ -1,13 +1,13 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions, useWindowDimensions } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import { useStore } from '../src/store';
-import { Link, useRouter, useFocusEffect, Redirect } from 'expo-router';
+import { useRouter, useFocusEffect, Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, Settings, Play, Trash2, Edit2, Timer, Flame, ChevronLeft, Quote, BarChart2 } from 'lucide-react-native';
+import { Plus, Settings, Play, Trash2, Edit2, Flame, ChevronLeft, BarChart2, CalendarDays } from 'lucide-react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '../src/theme';
-import Animated, { FadeInDown, Layout, useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { FadeInDown, Layout, useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { scheduleStreakReminder } from '../src/notifications';
 
 const QUOTES = [
@@ -24,18 +24,15 @@ const QUOTES = [
 ];
 
 export default function Home() {
+  const hapticsEnabled = useStore((s) => s.hapticsEnabled);
   const { width, height } = useWindowDimensions();
   const hasSeenOnboarding = useStore(s => s.hasSeenOnboarding);
 
-  if (!hasSeenOnboarding) {
-    return <Redirect href="/onboarding" />;
-  }
-  
-  // Initialize randomly on app launch
+// Initialize randomly on app launch
   const [dailyQuote, setDailyQuote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
 
   const workouts = useStore((s) => s.workouts);
-  const { streakDays, lastWorkoutDate, justEarnedStreak, clearStreakAnimation, totalMinutesLogged, totalWorkoutsLogged } = useStore();
+  const { streakDays, lastWorkoutDate, justEarnedStreak, clearStreakAnimation, totalWorkoutsLogged } = useStore();
   const removeWorkout = useStore((s) => s.removeWorkout);
   
   const prevWorkouts = useRef(totalWorkoutsLogged);
@@ -123,7 +120,7 @@ export default function Home() {
                   setTimeout(() => {
                     flameOpacity.value = 0;
                     setDisplayStreak(currentComputed);
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                     setShowAnimation(false);
                     clearStreakAnimation();
                   }, 600);
@@ -136,7 +133,7 @@ export default function Home() {
     } else {
       setDisplayStreak(currentComputed);
     }
-    }, [justEarnedStreak, streakDays, lastWorkoutDate])
+    }, [clearStreakAnimation, flameOpacity, flameScale, flameX, flameY, hapticsEnabled, height, insets.top, justEarnedStreak, lastWorkoutDate, streakDays, today, width, yesterdayStr])
   );
 
   const animatedFlameStyle = useAnimatedStyle(() => ({
@@ -148,10 +145,10 @@ export default function Home() {
     opacity: flameOpacity.value,
   }));
 
-  const handlePress = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const handlePress = () => { if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
 
   const handleDelete = (id: string) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     removeWorkout(id);
   };
 
@@ -172,6 +169,10 @@ export default function Home() {
       </View>
     );
   };
+
+  if (!hasSeenOnboarding) {
+    return <Redirect href="/onboarding" />;
+  }
 
   return (
     <View style={[styles.wrapper, { backgroundColor: t.colors.background }]}>
@@ -200,15 +201,28 @@ export default function Home() {
                 {workouts.length}
               </Text>
             </View>
-            <Pressable 
-              onPress={() => { handlePress(); router.push('/streak'); }}
-              style={[styles.streakPill, { backgroundColor: t.colors.card }]}
-            >
-              <View ref={flameRef} style={{ opacity: showAnimation ? 0 : 1 }}>
-                <Flame size={16} color={displayStreak > 0 || showAnimation ? "#FF9500" : t.colors.textMuted} fill={displayStreak > 0 || showAnimation ? "#FF9500" : "transparent"} />
-              </View>
-              <Text style={[styles.streakText, { color: displayStreak > 0 ? t.colors.text : t.colors.textMuted }]}>{displayStreak}</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Pressable 
+                onPress={() => { handlePress(); router.push('/streak'); }}
+                style={[styles.streakPill, { backgroundColor: t.colors.card }]}
+              >
+                <View ref={flameRef} style={{ opacity: showAnimation ? 0 : 1 }}>
+                  <Flame size={16} color={displayStreak > 0 || showAnimation ? "#FF9500" : t.colors.textMuted} fill={displayStreak > 0 || showAnimation ? "#FF9500" : "transparent"} />
+                </View>
+                <Text style={[styles.streakText, { color: displayStreak > 0 ? t.colors.text : t.colors.textMuted }]}>{displayStreak}</Text>
+              </Pressable>
+              
+              <Pressable 
+                onPress={() => { handlePress(); router.push('/builder'); }}
+                style={({ pressed }) => [
+                  styles.headerAddBtn, 
+                  { backgroundColor: t.colors.text, shadowColor: t.colors.text },
+                  pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] }
+                ]}
+              >
+                <Plus size={20} color={t.colors.background} strokeWidth={3} />
+              </Pressable>
+            </View>
           </View>
           
           {workouts.length === 0 ? (
@@ -249,26 +263,29 @@ export default function Home() {
         </Animated.View>
       </ScrollView>
 
-      {/* Fake Tab Bar */}
+      {/* Clean 3-Item Tab Bar */}
       <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: t.colors.background }]}>
         <Pressable 
           onPress={() => { handlePress(); router.push('/streak'); }}
           style={styles.tabItem}
         >
-          <BarChart2 size={28} color={t.colors.textMuted} />
+          <BarChart2 size={26} color={t.colors.textMuted} strokeWidth={2.5} />
           <Text style={[styles.tabLabel, { color: t.colors.textMuted }]}>Stats</Text>
         </Pressable>
+
         <Pressable 
-          onPress={() => { handlePress(); router.push('/builder'); }} 
-          style={[styles.fabBtn, { backgroundColor: t.colors.text, shadowColor: t.colors.text }]}
+          onPress={() => { handlePress(); router.push('/history'); }}
+          style={styles.tabItem}
         >
-          <Plus size={32} color={t.colors.background} />
+          <CalendarDays size={26} color={t.colors.textMuted} strokeWidth={2.5} />
+          <Text style={[styles.tabLabel, { color: t.colors.textMuted }]}>History</Text>
         </Pressable>
+
         <Pressable 
           onPress={() => { handlePress(); router.push('/settings'); }}
           style={styles.tabItem}
         >
-          <Settings size={28} color={t.colors.textMuted} />
+          <Settings size={26} color={t.colors.textMuted} strokeWidth={2.5} />
           <Text style={[styles.tabLabel, { color: t.colors.textMuted }]}>Settings</Text>
         </Pressable>
       </View>
@@ -280,6 +297,17 @@ const styles = StyleSheet.create({
   wrapper: { flex: 1 },
   container: { flex: 1 },
   content: { padding: 24, gap: 24 },
+  headerAddBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 4,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

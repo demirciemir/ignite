@@ -1,3 +1,4 @@
+import { useStore } from '../src/store';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +7,7 @@ import { ChevronLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 export default function PrivacyPolicy() {
+  const hapticsEnabled = useStore(s => s.hapticsEnabled);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useAppTheme();
@@ -19,7 +21,7 @@ export default function PrivacyPolicy() {
         <View style={styles.headerContent}>
           <Pressable 
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               router.back();
             }} 
             style={styles.backBtn}
@@ -35,7 +37,7 @@ export default function PrivacyPolicy() {
         <Text style={[styles.date, { color: t.colors.textMuted }]}>Last Updated: September 2026</Text>
         
         <Text style={[styles.paragraph, { color: t.colors.text }]}>
-          Thank you for choosing Ignite ("we", "us", "our"). We are committed to protecting your personal information and your right to privacy.
+          Thank you for choosing Ignite (“we”, “us”, “our”). We are committed to protecting your personal information and your right to privacy.
         </Text>
 
         <Text style={[styles.heading, { color: t.colors.text }]}>1. Data Collection</Text>
@@ -55,7 +57,7 @@ export default function PrivacyPolicy() {
 
         <Text style={[styles.heading, { color: t.colors.text }]}>4. Changes to this Policy</Text>
         <Text style={[styles.paragraph, { color: t.colors.text }]}>
-          We may update this Privacy Policy from time to time. The updated version will be indicated by an updated "Last Updated" date.
+          We may update this Privacy Policy from time to time. The updated version will be indicated by an updated “Last Updated” date.
         </Text>
 
         <Text style={[styles.heading, { color: t.colors.text }]}>5. Contact Us</Text>

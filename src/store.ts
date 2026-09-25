@@ -96,7 +96,31 @@ export const useStore = create<AppState>()(
       setHasSeenOnboarding: (seen) => set({ hasSeenOnboarding: seen }),
       justEarnedStreak: false,
       addWorkout: (workout) => set((state) => ({ workouts: [...state.workouts, workout] })),
-      removeWorkout: (id) => set((state) => ({ workouts: state.workouts.filter(w => w.id !== id) })),
+      removeWorkout: (id) => set((state) => {
+          const historyToRemove = (state.history || []).filter(h => h.workoutId === id);
+          
+          let subtractedMinutes = 0;
+          let subtractedWork = 0;
+          let subtractedRest = 0;
+          let subtractedRounds = 0;
+          
+          historyToRemove.forEach(h => {
+            subtractedMinutes += Math.round(h.totalDurationSeconds / 60);
+            subtractedWork += h.workDurationSeconds;
+            subtractedRest += h.restDurationSeconds;
+            subtractedRounds += h.roundsCompleted;
+          });
+
+          return {
+            workouts: state.workouts.filter(w => w.id !== id),
+            history: (state.history || []).filter(h => h.workoutId !== id),
+            totalWorkoutsLogged: Math.max(0, state.totalWorkoutsLogged - historyToRemove.length),
+            totalMinutesLogged: Math.max(0, state.totalMinutesLogged - subtractedMinutes),
+            totalWorkSeconds: Math.max(0, state.totalWorkSeconds - subtractedWork),
+            totalRestSeconds: Math.max(0, state.totalRestSeconds - subtractedRest),
+            totalRounds: Math.max(0, (state.totalRounds || 0) - subtractedRounds)
+          };
+        }),
       updateWorkout: (id, workout) => set((state) => ({ 
         workouts: state.workouts.map(w => w.id === id ? workout : w) 
       })),

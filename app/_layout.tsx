@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
@@ -8,11 +8,27 @@ import { useEffect } from 'react';
 
 export default function RootLayout() {
   const t = useAppTheme();
+  const navigationTheme = t.isDark ? DarkTheme : DefaultTheme;
 
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(t.colors.background);
   }, [t.colors.background]);
+
   return (
+    <ThemeProvider
+      value={{
+        ...navigationTheme,
+        colors: {
+          ...navigationTheme.colors,
+          primary: t.colors.accent,
+          background: t.colors.background,
+          card: t.colors.card,
+          text: t.colors.text,
+          border: t.colors.border,
+          notification: t.colors.accent,
+        },
+      }}
+    >
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.colors.background }}>
       <BottomSheetModalProvider>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.colors.background } }}>
@@ -45,12 +61,10 @@ export default function RootLayout() {
             name="onboarding" 
             options={{ animation: 'fade' }} 
           />
-          <Stack.Screen 
-            name="history" 
-            options={{ animation: 'slide_from_right' }} 
-          />
+          <Stack.Screen name="history" options={{ presentation: 'modal', gestureEnabled: true, gestureDirection: 'vertical' }} />
         </Stack>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
+    </ThemeProvider>
   );
 }

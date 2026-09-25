@@ -1,15 +1,17 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, Dimensions, Keyboard } from 'react-native';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, TextInput, Keyboard } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useStore, IntervalBlock, Workout } from '../src/store';
 import { useAppTheme } from '../src/theme';
 import * as Haptics from 'expo-haptics';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
+
 import { Picker } from '@react-native-picker/picker';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { Play, Pause, Trash2, Copy, GripVertical, Check, Plus, Edit3 } from 'lucide-react-native';
-import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
+import { Play, Pause, Trash2, Copy, GripVertical, Check, Edit3 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import Animated from 'react-native-reanimated';
 
 export default function BuilderScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -18,6 +20,7 @@ export default function BuilderScreen() {
   const insets = useSafeAreaInsets();
   
   const store = useStore();
+  const hapticsEnabled = useStore(s => s.hapticsEnabled);
   const existingWorkout = useMemo(() => store.workouts.find(w => w.id === id), [id, store.workouts]);
 
   const [name, setName] = useState(existingWorkout?.name || '');
@@ -34,7 +37,7 @@ export default function BuilderScreen() {
   const [pickerSec, setPickerSec] = useState(30);
   const [blockName, setBlockName] = useState('');
 
-  const handlePress = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const handlePress = () => { if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
 
   const openSheetForNew = (type: 'work' | 'rest') => {
     handlePress();
@@ -59,7 +62,9 @@ export default function BuilderScreen() {
   const saveBlock = () => {
     handlePress();
     Keyboard.dismiss();
+    
     const durationSeconds = pickerMin * 60 + pickerSec;
+    
     if (durationSeconds === 0) return; // Prevent 0 duration
     
     if (editingBlockId) {
@@ -81,28 +86,24 @@ export default function BuilderScreen() {
   };
 
   const removeBlock = (blockId: string) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setBlocks(prev => prev.filter(b => b.id !== blockId));
   };
 
   const duplicateBlock = (block: IntervalBlock) => {
     handlePress();
     setBlocks(prev => {
-      const idx = prev.findIndex(b => b.id === block.id);
-      if (idx === -1) return prev;
       const newBlock = { ...block, id: Math.random().toString(36).substring(2, 9) + Date.now() };
-      const newBlocks = [...prev];
-      newBlocks.splice(idx + 1, 0, newBlock);
-      return newBlocks;
+      return [...prev, newBlock];
     });
   };
 
   const saveWorkout = () => {
     if (!name.trim()) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
     const workout: Workout = {
       id: existingWorkout?.id || Math.random().toString(36).substring(7),
@@ -124,7 +125,7 @@ export default function BuilderScreen() {
     return `${m > 0 ? m + 'm ' : ''}${s}s`;
   };
 
-  const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<IntervalBlock>) => {
+  const renderItem = ({ item, drag, isActive }: RenderItemParams<IntervalBlock>) => {
     const isWork = item.type === 'work';
     const iconColor = isWork ? '#FF3B30' : '#007AFF';
     
@@ -162,7 +163,7 @@ export default function BuilderScreen() {
         </Animated.View>
       </ScaleDecorator>
     );
-  }, [t]);
+  };
 
   const renderFooter = () => {
     const canAddRest = blocks.length > 0;
@@ -266,20 +267,24 @@ export default function BuilderScreen() {
 
           <View style={styles.pickerRow}>
             <Picker
-              style={styles.picker}
-              itemStyle={{ color: t.colors.text }}
+              style={{ flex: 1, height: 200 }}
+              itemStyle={{ color: t.colors.text, fontSize: 20, fontWeight: '500' }}
               selectedValue={pickerMin}
               onValueChange={(val) => setPickerMin(val)}
             >
-              {[...Array(60).keys()].map(i => <Picker.Item key={`min-${i}`} label={`${i} min`} value={i} />)}
+              {[...Array(60).keys()].map(i => (
+                 <Picker.Item key={`min-${i}`} label={`${i} min`} value={i} color={t.colors.text} />
+              ))}
             </Picker>
             <Picker
-              style={styles.picker}
-              itemStyle={{ color: t.colors.text }}
+              style={{ flex: 1, height: 200 }}
+              itemStyle={{ color: t.colors.text, fontSize: 20, fontWeight: '500' }}
               selectedValue={pickerSec}
               onValueChange={(val) => setPickerSec(val)}
             >
-              {[...Array(12).keys()].map(i => <Picker.Item key={`sec-${i*5}`} label={`${i*5} sec`} value={i*5} />)}
+              {[...Array(12).keys()].map(i => (
+                 <Picker.Item key={`sec-${i*5}`} label={`${i*5} sec`} value={i*5} color={t.colors.text} />
+              ))}
             </Picker>
           </View>
 

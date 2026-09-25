@@ -41,3 +41,15 @@ example
 # generated native folders
 /ios
 /android
+
+# local development tools and planning files
+/.agents/
+/.claude/
+/.superpowers/
+/.vscode/
+/docs/
+/*.py
+/AGENTS.md
+/CLAUDE.md
+/implementation_plan.md
+/task.md

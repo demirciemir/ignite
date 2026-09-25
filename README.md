@@ -1,56 +1,71 @@
-# Welcome to your Expo app 👋
+# Ignite
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Ignite is a focused interval timer for iPhone. Build reusable routines, move through work and rest blocks with clear audio and haptic feedback, and keep an honest record of every completed session.
 
-## Get started
+<p align="center">
+  <img src="assets/images/icon.png" width="160" alt="Ignite app icon" />
+</p>
 
-1. Install dependencies
+## Highlights
 
-   ```bash
-   npm install
-   ```
+- Create and edit custom interval routines
+- Run multi-block timers with preparation, work, and rest stages
+- Continue timing reliably while the app is in the background
+- Use sound, haptics, and local notifications for stage changes
+- Track completed routines, focus time, rest time, rounds, and streaks
+- Browse and filter workout history
+- Choose light, dark, or system appearance
+- Keep all workout data locally on the device
 
-2. Start the app
+## Tech stack
 
-   ```bash
-   npx expo start
-   ```
+- Expo SDK 57
+- React Native 0.86
+- React 19
+- Expo Router
+- Zustand with AsyncStorage persistence
+- React Native Reanimated and Gesture Handler
+- Expo Audio, Notifications, Haptics, and Symbols
 
-In the output, you'll find options to open the app in a
+## Run locally
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Requirements: Node.js LTS and npm.
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Open the project with an Expo development build or Expo Go. For a physical iOS device, sign in to the same Expo account in Expo CLI and Expo Go.
 
-### Other setup steps
+## Useful commands
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npm start          # Start the Expo development server
+npm run ios        # Open on an iOS simulator
+npm run android    # Open on an Android emulator
+npm run web        # Open the web version
+npm run lint       # Run Expo lint checks
+```
 
-## Learn more
+## Production builds
 
-To learn more about developing your project with Expo, look at the following resources:
+The repository includes EAS Build profiles for development, preview, and production builds.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npx eas-cli@latest build --platform ios --profile production
+```
 
-## Join the community
+Production build numbers are managed remotely and increment automatically through EAS.
 
-Join our community of developers creating universal apps.
+## Privacy
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Ignite stores routines, preferences, history, and streak data locally on the user's device. The app includes in-app Privacy Policy and Terms of Use pages.
+
+## Author
+
+Designed and developed by [Emir Demirci](https://github.com/demirciemir).
+
+## License
+
+This project is available under the terms in [LICENSE](LICENSE).

@@ -1,10 +1,13 @@
 import React, { useMemo, useState } from 'react';
+import Animated, { FadeInUp, FadeInDown, ZoomIn } from "react-native-reanimated";
+import Svg, { Text as SvgText } from 'react-native-svg';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../src/store';
 import { useAppTheme } from '../src/theme';
-import { Flame, Check, RefreshCw, X, Snowflake, ChevronDown, ChevronUp, Timer, Award } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { Flame, Check, Sparkles, RefreshCw, X, Snowflake, ChevronDown, ChevronUp, ChevronRight, Timer, Award, Activity, Dumbbell, Zap, Crown, BarChart2 } from 'lucide-react-native';
 
 interface CalendarDay {
   id: string;
@@ -18,7 +21,33 @@ interface CalendarDay {
   isToday: boolean;
 }
 
+
+const OutlineText = ({ text, color, outlineColor, fontSize, strokeWidth = 4 }: any) => {
+  const styles = { fontSize, fontWeight: '900' as const, letterSpacing: -2, fontVariant: ['tabular-nums'] as any[] };
+  const strokes = [
+    { top: -strokeWidth, left: -strokeWidth },
+    { top: -strokeWidth, left: strokeWidth },
+    { top: strokeWidth, left: -strokeWidth },
+    { top: strokeWidth, left: strokeWidth },
+    { top: 0, left: -strokeWidth },
+    { top: 0, left: strokeWidth },
+    { top: -strokeWidth, left: 0 },
+    { top: strokeWidth, left: 0 },
+  ];
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      {strokes.map((pos, i) => (
+        <Text key={i} style={[styles, { position: 'absolute', color: outlineColor, ...pos }]}>
+          {text}
+        </Text>
+      ))}
+      <Text style={[styles, { color }]}>{text}</Text>
+    </View>
+  );
+};
+
 export default function StreakModal() {
+  const hapticsEnabled = useStore(s => s.hapticsEnabled);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useAppTheme();
@@ -34,10 +63,12 @@ export default function StreakModal() {
     totalWorkSeconds,
     totalRestSeconds,
     totalRounds,
-    restoreStreak
+    restoreStreak,
+    history = []
   } = useStore();
 
   const [expanded, setExpanded] = useState(false);
+  const [expandedStat, setExpandedStat] = useState<string | null>(null);
 
   const today = new Date().toLocaleDateString('en-CA');
   const yesterday = new Date();
@@ -71,7 +102,60 @@ export default function StreakModal() {
     return Math.max(max, displayStreak);
   }, [workoutDates, restoredDates, displayStreak]);
 
-    const formatHMS = (totalSecs: number) => {
+    
+  const completedRoutines = history.length;
+  
+  const totalWorkSecs = totalWorkSeconds || 0;
+  const totalRestSecs = totalRestSeconds || 0;
+  const workRestRatio = totalRestSecs > 0 ? (totalWorkSecs / totalRestSecs).toFixed(1) + 'x' : (totalWorkSecs > 0 ? 'MAX' : '0.0x');
+  
+  const totalSessionTime = history.reduce((sum, h) => sum + (h.totalDurationSeconds || 0), 0);
+  const avgRoutineSecs = completedRoutines > 0 ? Math.floor(totalSessionTime / completedRoutines) : 0;
+  
+  const favoriteRoutine = useMemo(() => {
+    if (history.length === 0) return '-';
+    const counts: Record<string, number> = {};
+    let max = 0;
+    let fav = '-';
+    history.forEach(h => {
+      if (!h.workoutName) return;
+      counts[h.workoutName] = (counts[h.workoutName] || 0) + 1;
+      if (counts[h.workoutName] > max) {
+        max = counts[h.workoutName];
+        fav = h.workoutName;
+      }
+    });
+    return fav;
+  }, [history]);
+
+  const longestFocus = useMemo(() => {
+    if (history.length === 0) return 0;
+    return Math.max(...history.map(h => h.workDurationSeconds || 0));
+  }, [history]);
+
+
+  const formatDetailedTime = (totalSecs: number) => {
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    let res = [];
+    if (h > 0) res.push(`${h} hours`);
+    if (m > 0) res.push(`${m} minutes`);
+    if (s > 0 && h === 0) res.push(`${s} seconds`);
+    return res.join(' ') || '0 seconds';
+  };
+
+  const numRatio = totalRestSecs > 0 ? (totalWorkSecs / totalRestSecs) : 5;
+  let ratioAdvice = "Optimal balance. You have a great work and recovery rhythm.";
+  if (numRatio < 1.5) ratioAdvice = "You might be taking too many breaks. Try to increase your focus blocks.";
+  if (numRatio > 4.0) ratioAdvice = "Very high intensity! Make sure you are not burning out and taking enough rest.";
+
+  const toggleStat = (id: string) => {
+    setExpandedStat(expandedStat === id ? null : id);
+    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const formatHMS = (totalSecs: number) => {
     const h = Math.floor(totalSecs / 3600);
     const m = Math.floor((totalSecs % 3600) / 60);
     const s = totalSecs % 60;
@@ -80,8 +164,8 @@ export default function StreakModal() {
   };
 
   const formattedTime = useMemo(() => {
-    return formatHMS((totalMinutesLogged * 60) + (totalWorkSeconds || 0));
-  }, [totalMinutesLogged, totalWorkSeconds]);
+    return formatHMS(totalWorkSeconds || 0);
+  }, [totalWorkSeconds]);
 
   const handleClose = () => router.back();
 
@@ -178,107 +262,226 @@ export default function StreakModal() {
 
   return (
     <View style={[styles.container, { backgroundColor: t.colors.background }]}>
-      <View style={styles.topBar}>
-        <View style={{ width: 32 }} />
-        <View style={[styles.handle, { backgroundColor: t.colors.border }]} />
-        <Pressable onPress={handleClose} style={styles.closeBtn}>
-          <X size={24} color={t.colors.textMuted} />
-        </Pressable>
-      </View>
+      <View style={[styles.topBar, { justifyContent: 'center' }]}>
+          <View style={[styles.handle, { backgroundColor: t.colors.border }]} />
+        </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         
+                        {/* Animated Rings & Flame Hero */}
         <View style={styles.hero}>
-          <View style={[styles.flameCircle, { borderColor: t.colors.border }]}>
-            <Flame size={48} color={isStreakActive ? "#FF9500" : t.colors.textMuted} fill={isStreakActive ? "#FF9500" : "transparent"} />
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingTop: 40 }}>
+            
+            {/* Concentric expanding orange rings */}
+            <Animated.View entering={ZoomIn.duration(1000).springify()} style={{ position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: isStreakActive ? 'rgba(255, 149, 0, 0.05)' : 'rgba(150, 150, 150, 0.05)' }} />
+            <Animated.View entering={ZoomIn.delay(100).duration(1000).springify()} style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: isStreakActive ? 'rgba(255, 149, 0, 0.1)' : 'rgba(150, 150, 150, 0.1)' }} />
+            <Animated.View entering={ZoomIn.delay(200).duration(800).springify()} style={{ position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: isStreakActive ? 'rgba(255, 149, 0, 0.15)' : 'rgba(150, 150, 150, 0.15)' }} />
+            
+            {/* Massive Flame */}
+            <Animated.View entering={ZoomIn.duration(800).springify()} style={{ alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
+              <Flame size={120} color={isStreakActive ? "#FF9500" : t.colors.border} fill={isStreakActive ? "#FF9500" : "transparent"} strokeWidth={1} />
+            </Animated.View>
+
+            {/* Sparks popping out */}
+            {isStreakActive && (
+              <>
+                <Animated.View entering={ZoomIn.delay(400).springify().damping(12).mass(0.5)} style={{ position: 'absolute', top: -10, left: 20 }}>
+                  <Sparkles size={24} color="#FF9500" fill="#FF9500" />
+                </Animated.View>
+                <Animated.View entering={ZoomIn.delay(500).springify().damping(12).mass(0.5)} style={{ position: 'absolute', top: 30, right: 10 }}>
+                  <Sparkles size={16} color="#FF9500" fill="#FF9500" />
+                </Animated.View>
+                <Animated.View entering={ZoomIn.delay(600).springify().damping(12).mass(0.5)} style={{ position: 'absolute', bottom: 50, left: -10 }}>
+                  <Sparkles size={20} color="#FF9500" fill="#FF9500" />
+                </Animated.View>
+              </>
+            )}
+            
+            {/* Outline Number Overlapping the Flame (No Box) */}
+            <Animated.View entering={FadeInUp.delay(300).springify().damping(14).mass(0.8)} style={{ 
+              marginTop: -50, // Overlaps the bottom of the flame
+              zIndex: 10,
+              shadowColor: '#000', 
+              shadowOffset: { width: 0, height: 8 }, 
+              shadowOpacity: 0.2, 
+              shadowRadius: 15, 
+              elevation: 10,
+            }}>
+              <Text style={{
+                color: t.colors.text,
+                fontSize: 90,
+                fontWeight: '900',
+                letterSpacing: -3,
+                textShadowColor: t.colors.background === '#000000' ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)',
+                textShadowRadius: 10,
+                textShadowOffset: { width: 0, height: 0 }
+              }}>
+                {displayStreak}
+              </Text>
+            </Animated.View>
           </View>
-          <Text style={[styles.streakNumber, { color: t.colors.text }]}>{displayStreak}</Text>
-          <Text style={[styles.streakTitle, { color: t.colors.text }]}>Day Streak</Text>
-          <Text style={[styles.streakSub, { color: t.colors.textMuted }]}>
-            {isStreakActive ? "You are doing really great!" : "Complete a session to ignite your streak."}
-          </Text>
+
+          {/* Titles */}
+          <Animated.Text entering={FadeInUp.delay(400).springify().damping(14).mass(0.8)} style={{ color: t.colors.text, fontSize: 36, fontWeight: '900', letterSpacing: -1, marginTop: 12 }}>
+            Streak
+          </Animated.Text>
+          <Animated.Text entering={FadeInUp.delay(500).springify().damping(14).mass(0.8)} style={{ color: t.colors.textMuted, fontSize: 15, fontWeight: '600', marginTop: 4, marginBottom: 8 }}>
+            interval training days
+          </Animated.Text>
         </View>
 
         {/* Calendar Section */}
-        <Pressable style={styles.calendarWrapper} onPress={() => setExpanded(!expanded)}>
-          <View style={styles.calendarHeader}>
-            {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((day, i) => (
-              <Text key={i} style={[styles.dayNameHeader, { color: t.colors.textMuted }]}>{day}</Text>
-            ))}
-          </View>
-          
-          <View style={styles.calendarGrid}>
-            {calendarWeeks.map((week, wIdx) => (
-              <View key={wIdx} style={styles.calendarRow}>
-                {week.map((day) => {
-                  const isActive = day.isLogged || day.isRestored;
-                  const color = day.isRestored ? '#0A84FF' : '#FF9500';
-                  const bgColor = day.isRestored ? 'rgba(10, 132, 255, 0.15)' : 'rgba(255, 149, 0, 0.15)';
+        <Animated.View entering={FadeInUp.delay(550).springify().damping(14).mass(0.8)} style={{ width: '100%', marginBottom: 32 }}>
+          <Pressable onPress={() => setExpanded(!expanded)}>
+            <View style={styles.calendarHeader}>
+              {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((day, i) => (
+                <Text key={i} style={[styles.dayNameHeader, { color: t.colors.textMuted }]}>{day}</Text>
+              ))}
+            </View>
+            
+            <View style={styles.calendarGrid}>
+              {calendarWeeks.map((week, wIdx) => (
+                <View key={wIdx} style={styles.calendarRow}>
+                  {week.map((day) => {
+                    const isActive = day.isLogged || day.isRestored;
+                    const color = day.isRestored ? '#0A84FF' : '#FF9500';
+                    const bgColor = day.isRestored ? 'rgba(10, 132, 255, 0.15)' : 'rgba(255, 149, 0, 0.15)';
 
-                  return (
-                    <View key={day.id} style={styles.calendarCol}>
-                      {isActive && (
-                        <View style={[StyleSheet.absoluteFill, { justifyContent: 'center' }]}>
-                          {day.prevIsLogged && <View style={{ position: 'absolute', left: 0, width: '50%', height: 32, backgroundColor: bgColor }} />}
-                          {day.nextIsLogged && <View style={{ position: 'absolute', right: 0, width: '50%', height: 32, backgroundColor: bgColor }} />}
-                        </View>
-                      )}
-                      
-                      <View style={[
-                        styles.dayCircle,
-                        isActive && { backgroundColor: color },
-                        !isActive && day.isToday && { borderWidth: 2, borderColor: t.colors.border },
-                        !isActive && !day.isToday && { backgroundColor: 'transparent' }
-                      ]}>
-                        <Text style={[
-                          styles.dayNumber,
-                          { color: isActive ? '#FFF' : (day.isCurrentMonth ? t.colors.text : t.colors.textMuted) },
-                          (!day.isCurrentMonth && !isActive) && { opacity: 0.3 }
-                        ]}>
-                          {day.date}
-                        </Text>
-                        
-                        {/* Snowflake droplet for restored days */}
-                        {day.isRestored && (
-                          <View style={[styles.restoredBadge, { borderColor: t.colors.background }]}>
-                            <Snowflake size={10} color="#FFF" fill="#FFF" />
+                    return (
+                      <View key={day.id} style={styles.calendarCol}>
+                        {isActive && (
+                          <View style={[StyleSheet.absoluteFill, { justifyContent: 'center' }]}>
+                            {day.prevIsLogged && <View style={{ position: 'absolute', left: 0, width: '50%', height: 28, backgroundColor: bgColor }} />}
+                            {day.nextIsLogged && <View style={{ position: 'absolute', right: 0, width: '50%', height: 28, backgroundColor: bgColor }} />}
                           </View>
                         )}
+                        
+                        <View style={[
+                          styles.dayCircle,
+                          isActive && { backgroundColor: color },
+                          !isActive && day.isToday && { borderWidth: 2, borderColor: t.colors.border },
+                          !isActive && !day.isToday && { backgroundColor: 'transparent' }
+                        ]}>
+                          <Text style={[
+                            styles.dayNumber,
+                            { color: isActive ? '#FFF' : (day.isCurrentMonth ? t.colors.text : t.colors.textMuted) },
+                            (!day.isCurrentMonth && !isActive) && { opacity: 0.3 }
+                          ]}>
+                            {day.date}
+                          </Text>
+                          
+                          {day.isRestored && (
+                            <View style={[styles.restoredBadge, { borderColor: t.colors.background }]}>
+                              <Snowflake size={10} color="#FFF" fill="#FFF" />
+                            </View>
+                          )}
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
-              </View>
-            ))}
-          </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+            
+            <View style={styles.expandHint}>
+              {expanded ? <ChevronUp size={20} color={t.colors.textMuted} /> : <ChevronDown size={20} color={t.colors.textMuted} />}
+            </View>
+          </Pressable>
+        </Animated.View>
+
+                                {/* Interactive Stats Cards */}
+        <Animated.View entering={FadeInUp.delay(650).springify().damping(14).mass(0.8)} style={{ width: '100%', marginBottom: 32 }}>
           
-          <View style={styles.expandHint}>
-            {expanded ? <ChevronUp size={20} color={t.colors.textMuted} /> : <ChevronDown size={20} color={t.colors.textMuted} />}
-          </View>
-        </Pressable>
-
-        {/* Bento Stats */}
-        <View style={styles.bentoStatsContainer}>
-          <View style={[styles.bentoCard, { backgroundColor: t.colors.card }]}>
-            <View style={[styles.bentoIcon, { backgroundColor: 'rgba(255, 149, 0, 0.15)' }]}>
-              <Award size={20} color="#FF9500" />
+          <Pressable onPress={() => toggleStat('focus')} style={[styles.horizontalCard, { backgroundColor: t.colors.card, flexDirection: 'column', alignItems: 'stretch' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.horizontalCardIcon, { backgroundColor: 'rgba(10, 132, 255, 0.15)' }]}>
+                <Timer size={24} color="#0A84FF" />
+              </View>
+              <Text style={[styles.horizontalCardLabel, { color: t.colors.textMuted }]}>TOTAL FOCUS</Text>
+              <Text style={[styles.horizontalCardValue, { color: t.colors.text }]}>{formattedTime}</Text>
+              <ChevronRight size={20} color={t.colors.textMuted} style={{ marginLeft: 6, opacity: 0.7 }} />
             </View>
-            <Text style={[styles.bentoValue, { color: t.colors.text }]}>{longestStreak} <Text style={{ fontSize: 16 }}>Days</Text></Text>
-            <Text style={[styles.bentoLabel, { color: t.colors.textMuted }]}>Longest Streak</Text>
-          </View>
+            {expandedStat === 'focus' && (
+              <Animated.View entering={FadeInDown.duration(300).springify()} style={{ marginTop: 16, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.colors.border }}>
+                <Text style={{ color: t.colors.text, fontSize: 16, fontWeight: '700', marginBottom: 4 }}>{formatDetailedTime(totalWorkSecs)}</Text>
+                <Text style={{ color: t.colors.textMuted, fontSize: 14, lineHeight: 20 }}>The total amount of time you’ve spent in deep focus across all your routines. This excludes any rest periods.</Text>
+              </Animated.View>
+            )}
+          </Pressable>
 
-          <View style={[styles.bentoCard, { backgroundColor: t.colors.card }]}>
-            <View style={[styles.bentoIcon, { backgroundColor: 'rgba(10, 132, 255, 0.15)' }]}>
-              <Timer size={20} color="#0A84FF" />
+          <Pressable onPress={() => toggleStat('ratio')} style={[styles.horizontalCard, { backgroundColor: t.colors.card, flexDirection: 'column', alignItems: 'stretch' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.horizontalCardIcon, { backgroundColor: 'rgba(255, 149, 0, 0.15)' }]}>
+                <Zap size={24} color="#FF9500" />
+              </View>
+              <Text style={[styles.horizontalCardLabel, { color: t.colors.textMuted }]}>WORK / REST RATIO</Text>
+              <Text style={[styles.horizontalCardValue, { color: t.colors.text }]}>{workRestRatio}</Text>
+              <ChevronRight size={20} color={t.colors.textMuted} style={{ marginLeft: 6, opacity: 0.7 }} />
             </View>
-            <Text style={[styles.bentoValue, { color: t.colors.text }]}>{formattedTime}</Text>
-            <Text style={[styles.bentoLabel, { color: t.colors.textMuted }]}>Total Focus</Text>
-          </View>
-        </View>
+            {expandedStat === 'ratio' && (
+              <Animated.View entering={FadeInDown.duration(300).springify()} style={{ marginTop: 16, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.colors.border }}>
+                <Text style={{ color: t.colors.text, fontSize: 16, fontWeight: '700', marginBottom: 4 }}>You work {workRestRatio} longer than you rest.</Text>
+                <Text style={{ color: t.colors.textMuted, fontSize: 14, lineHeight: 20 }}>{ratioAdvice}</Text>
+              </Animated.View>
+            )}
+          </Pressable>
+
+          <Pressable onPress={() => toggleStat('routines')} style={[styles.horizontalCard, { backgroundColor: t.colors.card, flexDirection: 'column', alignItems: 'stretch' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.horizontalCardIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                <Dumbbell size={24} color="#10B981" />
+              </View>
+              <Text style={[styles.horizontalCardLabel, { color: t.colors.textMuted }]}>COMPLETED ROUTINES</Text>
+              <Text style={[styles.horizontalCardValue, { color: t.colors.text }]}>{completedRoutines}</Text>
+              <ChevronRight size={20} color={t.colors.textMuted} style={{ marginLeft: 6, opacity: 0.7 }} />
+            </View>
+            {expandedStat === 'routines' && (
+              <Animated.View entering={FadeInDown.duration(300).springify()} style={{ marginTop: 16, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.colors.border }}>
+                <Text style={{ color: t.colors.text, fontSize: 16, fontWeight: '700', marginBottom: 4 }}>{completedRoutines} Total Routines</Text>
+                <Text style={{ color: t.colors.textMuted, fontSize: 14, lineHeight: 20 }}>The absolute number of times you have started and successfully finished a routine.</Text>
+              </Animated.View>
+            )}
+          </Pressable>
+
+          <Pressable onPress={() => toggleStat('favorite')} style={[styles.horizontalCard, { backgroundColor: t.colors.card, flexDirection: 'column', alignItems: 'stretch' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.horizontalCardIcon, { backgroundColor: 'rgba(255, 45, 85, 0.15)' }]}>
+                <Crown size={24} color="#FF2D55" />
+              </View>
+              <Text style={[styles.horizontalCardLabel, { color: t.colors.textMuted }]}>FAVORITE ROUTINE</Text>
+              <Text style={[styles.horizontalCardValue, { color: t.colors.text, fontSize: 18 }]} numberOfLines={1}>{favoriteRoutine}</Text>
+              <ChevronRight size={20} color={t.colors.textMuted} style={{ marginLeft: 6, opacity: 0.7 }} />
+            </View>
+            {expandedStat === 'favorite' && (
+              <Animated.View entering={FadeInDown.duration(300).springify()} style={{ marginTop: 16, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.colors.border }}>
+                <Text style={{ color: t.colors.text, fontSize: 16, fontWeight: '700', marginBottom: 4 }}>Top Choice</Text>
+                <Text style={{ color: t.colors.textMuted, fontSize: 14, lineHeight: 20 }}>The routine configuration you rely on the most for your daily sessions.</Text>
+              </Animated.View>
+            )}
+          </Pressable>
+
+          <Pressable onPress={() => toggleStat('average')} style={[styles.horizontalCard, { backgroundColor: t.colors.card, flexDirection: 'column', alignItems: 'stretch' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.horizontalCardIcon, { backgroundColor: 'rgba(142, 142, 147, 0.15)' }]}>
+                <BarChart2 size={24} color="#8E8E93" />
+              </View>
+              <Text style={[styles.horizontalCardLabel, { color: t.colors.textMuted }]}>AVERAGE DURATION</Text>
+              <Text style={[styles.horizontalCardValue, { color: t.colors.text }]}>{formatHMS(avgRoutineSecs)}</Text>
+              <ChevronRight size={20} color={t.colors.textMuted} style={{ marginLeft: 6, opacity: 0.7 }} />
+            </View>
+            {expandedStat === 'average' && (
+              <Animated.View entering={FadeInDown.duration(300).springify()} style={{ marginTop: 16, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.colors.border }}>
+                <Text style={{ color: t.colors.text, fontSize: 16, fontWeight: '700', marginBottom: 4 }}>{formatDetailedTime(avgRoutineSecs)} per session</Text>
+                <Text style={{ color: t.colors.textMuted, fontSize: 14, lineHeight: 20 }}>The typical duration of your routines, combining both work and rest periods.</Text>
+              </Animated.View>
+            )}
+          </Pressable>
+
+        </Animated.View>
 
         {/* Restore Streak Button */}
         {(canRestore || displayStreak === 0) && (
-          <View style={styles.restoreSection}>
+          <Animated.View entering={FadeInUp.delay(750).springify().damping(14).mass(0.8)} style={styles.restoreSection}>
             <Pressable 
               onPress={canRestore ? handleRestore : undefined} 
               style={[
@@ -288,12 +491,12 @@ export default function StreakModal() {
               ]}
             >
               {canRestore ? (
-                <Snowflake size={20} color="#FFF" />
+                <Snowflake size={24} color="#FFF" />
               ) : (
-                <RefreshCw size={20} color={t.colors.textMuted} />
+                <RefreshCw size={24} color={t.colors.textMuted} />
               )}
               <Text style={[styles.restoreBtnText, { color: canRestore ? '#FFF' : t.colors.textMuted }]}>
-                {canRestore ? "Use Streak Freeze" : "Streak broken"}
+                {canRestore ? "USE FREEZE" : "STREAK BROKEN"}
               </Text>
             </Pressable>
             {canRestore ? (
@@ -309,7 +512,7 @@ export default function StreakModal() {
                 Streak Freeze is available once every 7 days when you break a streak.
               </Text>
             )}
-          </View>
+          </Animated.View>
         )}
 
       </ScrollView>
@@ -357,10 +560,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   streakNumber: {
-    fontSize: 72,
+    fontSize: 80,
     fontWeight: '900',
-    letterSpacing: -2,
-    marginBottom: -8,
+    letterSpacing: -4,
+    marginBottom: 0,
   },
   streakTitle: {
     fontSize: 24,
@@ -369,7 +572,9 @@ const styles = StyleSheet.create({
   },
   streakSub: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '800',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   calendarWrapper: {
     width: '100%',
@@ -430,6 +635,36 @@ const styles = StyleSheet.create({
     marginTop: 12,
     opacity: 0.5,
   },
+
+  horizontalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 24,
+    marginBottom: 12,
+  },
+  horizontalCardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  horizontalCardLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    paddingRight: 8,
+  },
+  horizontalCardValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+
   bentoStatsContainer: {
     width: '100%',
     flexDirection: 'row',
@@ -438,9 +673,13 @@ const styles = StyleSheet.create({
   },
   bentoCard: {
     flex: 1,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 28,
+    padding: 24,
     alignItems: 'flex-start',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 3,
   },
   bentoIcon: {
     width: 40,
@@ -451,26 +690,55 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   bentoValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 4,
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -1,
   },
   bentoLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 4,
   },
   restoreSection: {
     width: '100%',
     alignItems: 'center',
     gap: 12,
   },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+    width: '100%',
+  },
+  statBoxSmall: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 16,
+  },
+  statBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  statBoxLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  statBoxValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+
   restoreBtn: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 18,
-    borderRadius: 24,
+    padding: 20,
+    borderRadius: 9999,
     gap: 12,
   },
   restoreBtnText: {
