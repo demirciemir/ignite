@@ -12,4 +12,4 @@ The App does not use any third-party analytics, advertising, or tracking framewo
 
 ## 3. Contact Us
 If you have any questions regarding this Privacy Policy, you can contact the developer at:
-https://github.com/demirciemir/ignite
+https://github.com/demirciemir
