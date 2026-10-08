@@ -7,6 +7,7 @@ import { useStore } from '../src/store';
 import Animated, { FadeInUp, ZoomIn, FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 import { Target, Flame, Activity, ArrowRight, Check, Zap, Sparkles, TrendingUp, Star } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
 
 const SLIDES = [
   {
@@ -55,11 +56,13 @@ export default function Onboarding() {
   const t = useAppTheme();
   const setHasSeenOnboarding = useStore(s => s.setHasSeenOnboarding);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step < SLIDES.length - 1) {
       setStep(s => s + 1);
     } else {
+      // Ask for notification permissions exactly when onboarding finishes
+      await Notifications.requestPermissionsAsync();
       setHasSeenOnboarding(true);
       router.replace('/');
     }

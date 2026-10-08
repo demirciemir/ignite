@@ -130,7 +130,7 @@ function TimerSession({ workout }: { workout: Workout }) {
     Notifications.requestPermissionsAsync();
     setAudioModeAsync({
       playsInSilentMode: true,
-      shouldPlayInBackground: true,
+      shouldPlayInBackground: false,
       interruptionMode: 'mixWithOthers'
     }).catch(e => console.warn('Audio mode error', e));
   }, []);
@@ -450,7 +450,7 @@ function TimerSession({ workout }: { workout: Workout }) {
             </View>
 
             {/* DONE Text Overlapping the Icon */}
-            <Animated.Text entering={FadeIn.delay(400).duration(800)} style={{ color: t.colors.text, fontSize: 80, fontWeight: '900', letterSpacing: -4, textTransform: 'uppercase', marginTop: -34, zIndex: 10 }}>
+            <Animated.Text entering={FadeIn.delay(400).duration(800)} style={{ color: t.colors.text, fontSize: 80, fontWeight: '900', letterSpacing: -4, textTransform: 'uppercase', marginTop: -34, zIndex: 10, paddingRight: 8 }}>
               DONE.
             </Animated.Text>
             

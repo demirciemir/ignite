@@ -13,11 +13,8 @@
         "dark": "./assets/images/icon-dark.png"
       },
       "bundleIdentifier": "com.emirdemirci.ignite",
-      "buildNumber": "2",
+      "buildNumber": "4",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "audio"
-        ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
